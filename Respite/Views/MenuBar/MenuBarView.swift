@@ -1,19 +1,43 @@
 import SwiftUI
 
 /// The dropdown menu shown when clicking Respite's menubar icon.
+///
+/// IMPORTANT: This uses `.menu` style MenuBarExtra, which renders as a native
+/// NSMenu. Every @Observable property accessed in `body` triggers a full
+/// menu rebuild. To avoid per-second jitter, we only access stable properties
+/// (`state`, `nextBreakDate`) during counting — NOT `secondsUntilBreak`.
 struct MenuBarView: View {
     var timerService: TimerService
 
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        // MARK: - Timer Status
-        timerStatusSection
+        // MARK: - Timer Status (stable — only changes on state transitions)
+        statusText
 
         Divider()
 
-        // MARK: - Timer Controls
-        timerControlsSection
+        // MARK: - Timer Controls (always present, disabled when irrelevant)
+        Button("Take a Break Now") {
+            timerService.takeBreakNow()
+        }
+        .disabled(!timerService.isCounting)
+        .keyboardShortcut("b", modifiers: [.command])
+
+        Button("Skip Next Break") {
+            timerService.skipNextBreak()
+        }
+        .disabled(!timerService.isCounting)
+
+        Button("End Break") {
+            timerService.skipCurrentBreak()
+        }
+        .disabled(!timerService.isOnBreak)
+
+        Button("Resume") {
+            timerService.resume()
+        }
+        .disabled(!timerService.isPaused)
 
         Divider()
 
@@ -37,54 +61,41 @@ struct MenuBarView: View {
         .keyboardShortcut("q", modifiers: [.command])
     }
 
-    // MARK: - Timer Status Section
+    // MARK: - Status Text
 
-    @ViewBuilder
-    private var timerStatusSection: some View {
+    /// Computed from stable properties only — avoids per-second menu rebuilds.
+    /// `nextBreakDate` only changes on start/skip/break events, not every tick.
+    /// `state` only changes on transitions (idle→counting→onBreak→paused).
+    private var statusText: Text {
         switch timerService.state {
         case .idle:
-            Text("Timer not started")
-                .foregroundStyle(.secondary)
+            return Text("Timer not started")
 
         case .counting:
-            Text("Next break in \(timerService.countdownFormatted)")
+            // Compute minutes from the stable nextBreakDate, not from
+            // the per-second secondsUntilBreak counter.
+            if let breakDate = timerService.nextBreakDate {
+                let remaining = max(0, Int(breakDate.timeIntervalSinceNow))
+                if remaining < 60 {
+                    return Text("Break in less than a minute")
+                } else {
+                    let minutes = remaining / 60
+                    return Text("Next break in \(minutes) min")
+                }
+            } else {
+                return Text("Respite is running")
+            }
 
         case .onBreak:
-            Text("On break — \(timerService.countdownFormatted) remaining")
+            // During breaks (short, ~20s) we accept the per-second rebuild
+            // since the overlay covers the screen and this menu is rarely visible.
+            return Text("On break — \(timerService.countdownFormatted) left")
 
         case .paused(let until):
-            if let formatted = timerService.pauseRemainingFormatted {
-                Text("Paused — resumes in \(formatted)")
-            } else if until == nil {
-                Text("Paused indefinitely")
-            }
-        }
-    }
-
-    // MARK: - Timer Controls Section
-
-    @ViewBuilder
-    private var timerControlsSection: some View {
-        if timerService.isCounting {
-            Button("Take a Break Now") {
-                timerService.takeBreakNow()
-            }
-            .keyboardShortcut("b", modifiers: [.command])
-
-            Button("Skip Next Break") {
-                timerService.skipNextBreak()
-            }
-        }
-
-        if timerService.isOnBreak {
-            Button("Skip Break") {
-                timerService.skipCurrentBreak()
-            }
-        }
-
-        if timerService.isPaused {
-            Button("Resume") {
-                timerService.resume()
+            if until != nil, let formatted = timerService.pauseRemainingFormatted {
+                return Text("Paused — resumes in \(formatted)")
+            } else {
+                return Text("Paused")
             }
         }
     }
