@@ -12,7 +12,7 @@ struct RespiteApp: App {
         MenuBarExtra("Respite", systemImage: "cup.and.saucer.fill") {
             MenuBarView(timerService: timerService)
         }
-        .menuBarExtraStyle(.menu)
+        .menuBarExtraStyle(.window)
 
         Settings {
             PreferencesView(settings: settings)

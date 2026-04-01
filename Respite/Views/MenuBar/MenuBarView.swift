@@ -1,122 +1,174 @@
 import SwiftUI
 
-/// The dropdown menu shown when clicking Respite's menubar icon.
+/// The panel shown when clicking Respite's menubar icon.
 ///
-/// IMPORTANT: This uses `.menu` style MenuBarExtra, which renders as a native
-/// NSMenu. Every @Observable property accessed in `body` triggers a full
-/// menu rebuild. To avoid per-second jitter, we only access stable properties
-/// (`state`, `nextBreakDate`) during counting — NOT `secondsUntilBreak`.
+/// Uses `.window` style MenuBarExtra — renders as a native SwiftUI panel,
+/// not an NSMenu. This gives us partial view updates (no full rebuild
+/// on every tick) and full design freedom for layout and animations.
 struct MenuBarView: View {
     var timerService: TimerService
 
     @Environment(\.openSettings) private var openSettings
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        // MARK: - Timer Status (stable — only changes on state transitions)
-        statusText
+        VStack(spacing: 0) {
+            // MARK: - Countdown Display
+            countdownSection
+                .padding(.horizontal, DesignTokens.spacingMD)
+                .padding(.top, DesignTokens.spacingMD)
+                .padding(.bottom, DesignTokens.spacingSM)
 
-        Divider()
+            Divider()
 
-        // MARK: - Timer Controls (always present, disabled when irrelevant)
-        Button("Take a Break Now") {
-            timerService.takeBreakNow()
+            // MARK: - Actions
+            actionsSection
+                .padding(.horizontal, DesignTokens.spacingXS)
+                .padding(.vertical, DesignTokens.spacing2XS)
+
+            Divider()
+
+            // MARK: - Footer
+            footerSection
+                .padding(.horizontal, DesignTokens.spacingXS)
+                .padding(.vertical, DesignTokens.spacing2XS)
         }
-        .disabled(!timerService.isCounting)
-        .keyboardShortcut("b", modifiers: [.command])
-
-        Button("Skip Next Break") {
-            timerService.skipNextBreak()
-        }
-        .disabled(!timerService.isCounting)
-
-        Button("End Break") {
-            timerService.skipCurrentBreak()
-        }
-        .disabled(!timerService.isOnBreak)
-
-        Button("Resume") {
-            timerService.resume()
-        }
-        .disabled(!timerService.isPaused)
-
-        Divider()
-
-        // MARK: - App Controls
-        Button("About Respite") {
-            showAboutPanel()
-        }
-        .keyboardShortcut("i", modifiers: [.command])
-
-        Button("Preferences...") {
-            openSettings()
-            NSApplication.shared.activate(ignoringOtherApps: true)
-        }
-        .keyboardShortcut(",", modifiers: [.command])
-
-        Divider()
-
-        Button("Quit Respite") {
-            NSApplication.shared.terminate(nil)
-        }
-        .keyboardShortcut("q", modifiers: [.command])
+        .frame(width: 260)
     }
 
-    // MARK: - Status Text
+    // MARK: - Countdown Section
 
-    /// Computed from stable properties only — avoids per-second menu rebuilds.
-    /// `nextBreakDate` only changes on start/skip/break events, not every tick.
-    /// `state` only changes on transitions (idle→counting→onBreak→paused).
-    private var statusText: Text {
+    @ViewBuilder
+    private var countdownSection: some View {
         switch timerService.state {
         case .idle:
-            return Text("Timer not started")
+            VStack(spacing: DesignTokens.spacing2XS) {
+                Text("Timer not started")
+                    .respiteBody()
+                    .foregroundStyle(.secondary)
+            }
 
         case .counting:
-            // Compute minutes from the stable nextBreakDate, not from
-            // the per-second secondsUntilBreak counter.
-            if let breakDate = timerService.nextBreakDate {
-                let remaining = max(0, Int(breakDate.timeIntervalSinceNow))
-                if remaining < 60 {
-                    return Text("Break in less than a minute")
-                } else {
-                    let minutes = remaining / 60
-                    return Text("Next break in \(minutes) min")
-                }
-            } else {
-                return Text("Respite is running")
+            VStack(spacing: DesignTokens.spacing2XS) {
+                Text("Next break in")
+                    .respiteCaption()
+                Text(timerService.countdownFormatted)
+                    .font(.system(size: 36, weight: .light, design: .rounded))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .animation(.linear(duration: 0.3), value: timerService.secondsUntilBreak)
             }
 
         case .onBreak:
-            // During breaks (short, ~20s) we accept the per-second rebuild
-            // since the overlay covers the screen and this menu is rarely visible.
-            return Text("On break — \(timerService.countdownFormatted) left")
+            VStack(spacing: DesignTokens.spacing2XS) {
+                Text("Taking a break")
+                    .respiteCaption()
+                Text(timerService.countdownFormatted)
+                    .font(.system(size: 36, weight: .light, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(DesignTokens.primaryBlue)
+                    .contentTransition(.numericText())
+                    .animation(.linear(duration: 0.3), value: timerService.secondsRemainingInBreak)
+            }
 
         case .paused(let until):
-            if until != nil, let formatted = timerService.pauseRemainingFormatted {
-                return Text("Paused — resumes in \(formatted)")
-            } else {
-                return Text("Paused")
+            VStack(spacing: DesignTokens.spacing2XS) {
+                Image(systemName: "pause.circle")
+                    .font(.system(size: 28))
+                    .foregroundStyle(.secondary)
+                if until != nil, let formatted = timerService.pauseRemainingFormatted {
+                    Text("Paused — resumes in \(formatted)")
+                        .respiteCaption()
+                        .monospacedDigit()
+                } else {
+                    Text("Paused")
+                        .respiteBody()
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
 
-    // MARK: - About Panel
+    // MARK: - Actions Section
 
-    private func showAboutPanel() {
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        NSApplication.shared.orderFrontStandardAboutPanel(
-            options: [
-                .applicationName: "Respite",
-                .applicationVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.1.0",
-                .version: Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1",
-                .credits: NSAttributedString(
-                    string: "A gentle reminder to take breaks.\nOpen source under MIT license.",
-                    attributes: [
-                        .font: NSFont.systemFont(ofSize: 11),
-                        .foregroundColor: NSColor.secondaryLabelColor,
-                    ]
-                ),
-            ]
-        )
+    @ViewBuilder
+    private var actionsSection: some View {
+        if timerService.isCounting {
+            MenuPanelButton("Take a Break Now", systemImage: "cup.and.saucer") {
+                timerService.takeBreakNow()
+            }
+            MenuPanelButton("Skip Next Break", systemImage: "forward.end") {
+                timerService.skipNextBreak()
+            }
+        }
+
+        if timerService.isOnBreak {
+            MenuPanelButton("End Break", systemImage: "xmark.circle") {
+                timerService.skipCurrentBreak()
+            }
+        }
+
+        if timerService.isPaused {
+            MenuPanelButton("Resume", systemImage: "play.fill") {
+                timerService.resume()
+            }
+        }
+    }
+
+    // MARK: - Footer Section
+
+    private var footerSection: some View {
+        VStack(spacing: 0) {
+            MenuPanelButton("Preferences...", systemImage: "gearshape") {
+                openSettings()
+                NSApplication.shared.activate(ignoringOtherApps: true)
+                dismiss()
+            }
+            MenuPanelButton("Quit Respite", systemImage: "power") {
+                NSApplication.shared.terminate(nil)
+            }
+        }
+    }
+}
+
+// MARK: - Menu Panel Button
+
+/// A button styled for the menubar panel — full-width, hover highlight,
+/// icon + label layout matching macOS system menus.
+private struct MenuPanelButton: View {
+    let title: String
+    let systemImage: String
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    init(_ title: String, systemImage: String, action: @escaping () -> Void) {
+        self.title = title
+        self.systemImage = systemImage
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: DesignTokens.spacingXS) {
+                Image(systemName: systemImage)
+                    .frame(width: 18)
+                    .foregroundStyle(isHovering ? .white : .secondary)
+                Text(title)
+                    .respiteBody()
+                Spacer()
+            }
+            .padding(.horizontal, DesignTokens.spacingXS)
+            .padding(.vertical, 5)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(isHovering ? Color.accentColor : .clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering in
+            isHovering = hovering
+        }
     }
 }
