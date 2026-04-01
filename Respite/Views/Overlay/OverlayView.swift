@@ -46,15 +46,18 @@ struct OverlayView: View {
 
                 // MARK: - Controls
                 HStack(spacing: DesignTokens.spacingMD) {
-                    // Postpone — medium prominence
-                    Button(action: onPostpone) {
-                        Label("5 More Minutes", systemImage: "clock.arrow.circlepath")
-                            .padding(.horizontal, DesignTokens.spacingMD)
-                            .padding(.vertical, DesignTokens.spacingXS)
+                    // Postpone — medium prominence (hidden after max postpones)
+                    if timerService.canPostpone {
+                        Button(action: onPostpone) {
+                            Label("5 More Minutes", systemImage: "clock.arrow.circlepath")
+                                .padding(.horizontal, DesignTokens.spacingMD)
+                                .padding(.vertical, DesignTokens.spacingXS)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(.white.opacity(0.3))
+                        .foregroundStyle(.white)
+                        .transition(.opacity)
                     }
-                    .buttonStyle(.bordered)
-                    .tint(.white.opacity(0.3))
-                    .foregroundStyle(.white)
 
                     // Skip — lower prominence
                     Button(action: onSkip) {
@@ -65,9 +68,12 @@ struct OverlayView: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(.white.opacity(0.6))
                 }
+                .animation(.easeInOut(duration: 0.3), value: timerService.canPostpone)
 
                 // Keyboard hint
-                Text("Press Esc to skip  ·  Space to postpone")
+                Text(timerService.canPostpone
+                     ? "Press Esc to skip  ·  Space to postpone"
+                     : "Press Esc to skip")
                     .font(.system(size: 11))
                     .foregroundStyle(.white.opacity(0.3))
                     .padding(.bottom, DesignTokens.spacingXL)
@@ -78,6 +84,7 @@ struct OverlayView: View {
             return .handled
         }
         .onKeyPress(.space) {
+            guard timerService.canPostpone else { return .ignored }
             onPostpone()
             return .handled
         }

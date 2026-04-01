@@ -41,7 +41,7 @@ final class OverlayService {
         let overlayView = OverlayView(
             timerService: timerService,
             settings: settings,
-            onSkip: { [weak self] in self?.dismiss() },
+            onSkip: { [weak self] in self?.skip() },
             onPostpone: { [weak self] in self?.postpone(minutes: 5) }
         )
 
@@ -87,9 +87,16 @@ final class OverlayService {
 
     // MARK: - Private
 
+    private func skip() {
+        // Tell the timer the break was skipped — this fires onBreakEnded
+        // which calls dismiss() via the callback wired in RespiteApp.
+        timerService.skipCurrentBreak()
+    }
+
     private func postpone(minutes: Int) {
+        // Tell the timer to postpone — this fires onBreakEnded
+        // which calls dismiss() via the callback wired in RespiteApp.
         timerService.postponeBreak(minutes: minutes)
-        dismiss()
     }
 
     private func tearDownWindow() {

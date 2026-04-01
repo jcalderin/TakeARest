@@ -246,6 +246,72 @@ struct TimerServiceTests {
         #expect(timer.isPaused)
     }
 
+    // MARK: - Postpone Limits
+
+    @Test("Postpone count increments and blocks after max")
+    func postponeLimitEnforced() {
+        let startTime = Date(timeIntervalSinceReferenceDate: 1000)
+        let (timer, _, _) = makeSUT(now: startTime)
+        timer.start()
+
+        // First break cycle — use all 3 postpones
+        for i in 1...TimerService.maxPostponesPerCycle {
+            timer.takeBreakNow()
+            #expect(timer.isOnBreak)
+            #expect(timer.canPostpone)
+            timer.postponeBreak(minutes: 5)
+            #expect(timer.postponeCount == i)
+        }
+
+        // 4th attempt should be blocked
+        timer.takeBreakNow()
+        #expect(timer.isOnBreak)
+        #expect(!timer.canPostpone)
+        timer.postponeBreak(minutes: 5)
+        // Should still be on break — postpone was rejected
+        #expect(timer.isOnBreak)
+        #expect(timer.postponeCount == TimerService.maxPostponesPerCycle)
+    }
+
+    @Test("Postpone count resets on new break cycle")
+    func postponeCountResetsOnNewCycle() {
+        let startTime = Date(timeIntervalSinceReferenceDate: 1000)
+        let (timer, _, _) = makeSUT(now: startTime)
+        timer.start()
+
+        // Use one postpone
+        timer.takeBreakNow()
+        timer.postponeBreak(minutes: 5)
+        #expect(timer.postponeCount == 1)
+
+        // Complete the break cycle by taking and skipping
+        timer.takeBreakNow()
+        timer.skipCurrentBreak()
+
+        // skipCurrentBreak → endBreak → scheduleNextBreak → resets count
+        #expect(timer.postponeCount == 0)
+        #expect(timer.canPostpone)
+    }
+
+    @Test("Skip button always works regardless of postpone count")
+    func skipAlwaysAvailable() {
+        let startTime = Date(timeIntervalSinceReferenceDate: 1000)
+        let (timer, _, _) = makeSUT(now: startTime)
+        timer.start()
+
+        // Exhaust all postpones
+        for _ in 1...TimerService.maxPostponesPerCycle {
+            timer.takeBreakNow()
+            timer.postponeBreak(minutes: 5)
+        }
+
+        // Skip should still work even though postpone is exhausted
+        timer.takeBreakNow()
+        #expect(!timer.canPostpone)
+        timer.skipCurrentBreak()
+        #expect(timer.isCounting)
+    }
+
     // MARK: - Sleep/Wake Simulation
 
     @Test("After wake past break time, break is rescheduled with grace period")

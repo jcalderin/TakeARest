@@ -41,6 +41,12 @@ final class TimerService {
     /// Seconds remaining in the current break (for UI display).
     private(set) var secondsRemainingInBreak: Int = 0
 
+    /// Number of times the user has postponed in the current break cycle.
+    private(set) var postponeCount: Int = 0
+
+    /// Maximum postpones allowed per break cycle before the button is hidden.
+    static let maxPostponesPerCycle = 3
+
     /// Callback fired when a break should start.
     /// The overlay service will connect to this.
     var onBreakStarted: (() -> Void)?
@@ -113,8 +119,11 @@ final class TimerService {
     }
 
     /// Postpone the current active break by the given number of minutes.
+    /// Returns without action if the postpone limit has been reached.
     func postponeBreak(minutes: Int) {
         guard case .onBreak = state else { return }
+        guard canPostpone else { return }
+        postponeCount += 1
         state = .counting
         secondsRemainingInBreak = 0
         let postponeDate = dateProvider().addingTimeInterval(TimeInterval(minutes * 60))
@@ -163,6 +172,11 @@ final class TimerService {
         return false
     }
 
+    /// Whether the user can still postpone in this break cycle.
+    var canPostpone: Bool {
+        postponeCount < Self.maxPostponesPerCycle
+    }
+
     /// Formatted countdown string for the menubar, e.g. "14:32".
     var countdownFormatted: String {
         let total = isCounting ? secondsUntilBreak : secondsRemainingInBreak
@@ -186,6 +200,7 @@ final class TimerService {
         let interval = TimeInterval(settings.breakIntervalMinutes * 60)
         nextBreakDate = dateProvider().addingTimeInterval(interval)
         state = .counting
+        postponeCount = 0
         startTicking()
     }
 
