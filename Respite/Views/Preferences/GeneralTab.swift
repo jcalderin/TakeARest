@@ -53,20 +53,12 @@ struct GeneralTab: View {
                         .foregroundStyle(.secondary)
                 }
 
-                HStack {
-                    Text("Fade-in duration")
-                    Spacer()
-                    Text(String(format: "%.1fs", settings.dimAnimationDuration))
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
-                Slider(
-                    value: $settings.dimAnimationDuration,
-                    in: 1.0...DesignTokens.overlayDimDurationMax,
-                    step: 0.5
-                )
             } header: {
                 Text("Break Timing")
+            } footer: {
+                Text("These are the default values. Create schedules in the Schedules tab for day/time-specific settings.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
             }
 
             // MARK: - Behavior
