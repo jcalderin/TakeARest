@@ -7,5 +7,9 @@ struct RespiteApp: App {
             MenuBarView()
         }
         .menuBarExtraStyle(.menu)
+
+        Settings {
+            PreferencesView()
+        }
     }
 }

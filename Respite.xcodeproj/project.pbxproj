@@ -11,6 +11,11 @@
 		A1000003000000000000001A /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000004000000000000001A /* DesignTokens.swift */; };
 		A1000005000000000000001A /* RespiteTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000006000000000000001A /* RespiteTheme.swift */; };
 		A1000033000000000000001A /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000034000000000000001A /* MenuBarView.swift */; };
+		A1000035000000000000001A /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000036000000000000001A /* PreferencesView.swift */; };
+		A1000037000000000000001A /* GeneralTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000038000000000000001A /* GeneralTab.swift */; };
+		A1000039000000000000001A /* AppearanceTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100003A000000000000001A /* AppearanceTab.swift */; };
+		A100003B000000000000001A /* SchedulesTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100003C000000000000001A /* SchedulesTab.swift */; };
+		A100003D000000000000001A /* AboutTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100003E000000000000001A /* AboutTab.swift */; };
 		A1000007000000000000001A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000008000000000000001A /* Assets.xcassets */; };
 		A1000009000000000000001A /* RespiteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000A000000000000001A /* RespiteTests.swift */; };
 /* End PBXBuildFile section */
@@ -36,6 +41,11 @@
 		A100000A000000000000001A /* RespiteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RespiteTests.swift; sourceTree = "<group>"; };
 		A1000011000000000000001A /* RespiteTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RespiteTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000034000000000000001A /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
+		A1000036000000000000001A /* PreferencesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesView.swift; sourceTree = "<group>"; };
+		A1000038000000000000001A /* GeneralTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralTab.swift; sourceTree = "<group>"; };
+		A100003A000000000000001A /* AppearanceTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceTab.swift; sourceTree = "<group>"; };
+		A100003C000000000000001A /* SchedulesTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchedulesTab.swift; sourceTree = "<group>"; };
+		A100003E000000000000001A /* AboutTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutTab.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -133,6 +143,11 @@
 		A1000020000000000000001A /* Preferences */ = {
 			isa = PBXGroup;
 			children = (
+				A1000036000000000000001A /* PreferencesView.swift */,
+				A1000038000000000000001A /* GeneralTab.swift */,
+				A100003A000000000000001A /* AppearanceTab.swift */,
+				A100003C000000000000001A /* SchedulesTab.swift */,
+				A100003E000000000000001A /* AboutTab.swift */,
 			);
 			path = Preferences;
 			sourceTree = "<group>";
@@ -294,6 +309,11 @@
 			files = (
 				A1000001000000000000001A /* RespiteApp.swift in Sources */,
 				A1000033000000000000001A /* MenuBarView.swift in Sources */,
+				A1000035000000000000001A /* PreferencesView.swift in Sources */,
+				A1000037000000000000001A /* GeneralTab.swift in Sources */,
+				A1000039000000000000001A /* AppearanceTab.swift in Sources */,
+				A100003B000000000000001A /* SchedulesTab.swift in Sources */,
+				A100003D000000000000001A /* AboutTab.swift in Sources */,
 				A1000003000000000000001A /* DesignTokens.swift in Sources */,
 				A1000005000000000000001A /* RespiteTheme.swift in Sources */,
 			);

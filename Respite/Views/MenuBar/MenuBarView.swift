@@ -2,14 +2,26 @@ import SwiftUI
 
 /// The dropdown menu shown when clicking Respite's menubar icon.
 ///
-/// Phase 2: Basic menu with About and Quit.
-/// Future phases will add timer status, pause controls, and preferences.
+/// Future phases will add timer status and pause controls above the divider.
 struct MenuBarView: View {
+    /// Opens the Settings window. Uses the environment action provided by
+    /// the `Settings` scene in `RespiteApp`.
+    @Environment(\.openSettings) private var openSettings
+
     var body: some View {
         Button("About Respite") {
             showAboutPanel()
         }
         .keyboardShortcut("i", modifiers: [.command])
+
+        Divider()
+
+        Button("Preferences...") {
+            openSettings()
+            // Activate so the window appears in front for LSUIElement apps
+            NSApplication.shared.activate(ignoringOtherApps: true)
+        }
+        .keyboardShortcut(",", modifiers: [.command])
 
         Divider()
 
