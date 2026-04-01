@@ -1,9 +1,19 @@
+import AppKit
 import SwiftUI
 import Testing
 @testable import Respite
 
 @Suite("Respite")
 struct RespiteTests {
+
+    @Test("All named colors exist in asset catalog")
+    func namedColorsExist() {
+        let colorNames = ["PrimaryBlue", "AccentGreen", "WarmOrange", "OverlayBackground"]
+        for name in colorNames {
+            let nsColor = NSColor(named: NSColor.Name(name))
+            #expect(nsColor != nil, "Color '\(name)' not found in asset catalog")
+        }
+    }
 
     @Test("Design tokens have valid spacing values on 4pt grid")
     func spacingGridAlignment() {
