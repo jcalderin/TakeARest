@@ -1,13 +1,13 @@
 import AppKit
 import SwiftUI
 
-/// Manages the full-screen break overlay window.
+/// Manages full-screen break overlay windows across all connected displays.
 ///
-/// Creates a borderless NSWindow at `.screenSaver` level that appears above
-/// everything — including full-screen apps, the Dock, and the menu bar.
-/// Hosts a SwiftUI `OverlayView` via `NSHostingView`.
-///
-/// Phase 6: Single main screen. Phase 8 extends to all connected displays.
+/// Creates a borderless NSWindow at `.screenSaver` level for each screen.
+/// The main screen gets the interactive `OverlayView` with countdown,
+/// skip/postpone controls, and keyboard shortcuts. Secondary screens get
+/// a simpler `SecondaryOverlayView` — just the dimmed background and
+/// break message — to avoid multiple key windows fighting for focus.
 @MainActor
 @Observable
 final class OverlayService {
@@ -20,9 +20,10 @@ final class OverlayService {
     private let settings: AppSettings
     private let timerService: TimerService
 
-    // MARK: - Window
+    // MARK: - Windows
 
-    private var overlayWindow: NSWindow?
+    /// One overlay window per connected screen.
+    private var overlayWindows: [NSWindow] = []
 
     // MARK: - Init
 
@@ -33,56 +34,77 @@ final class OverlayService {
 
     // MARK: - Public API
 
-    /// Show the break overlay on the main screen.
+    /// Show break overlays on all connected screens.
     func show() {
         guard !isShowing else { return }
-        guard let screen = NSScreen.main else { return }
 
-        let overlayView = OverlayView(
-            timerService: timerService,
-            settings: settings,
-            onSkip: { [weak self] in self?.skip() },
-            onPostpone: { [weak self] in self?.postpone(minutes: 5) }
-        )
+        let screens = NSScreen.screens
+        guard !screens.isEmpty else { return }
+        let mainScreen = NSScreen.main ?? screens[0]
 
-        let window = createOverlayWindow(screen: screen, content: overlayView)
-        overlayWindow = window
+        for screen in screens {
+            let isMain = (screen == mainScreen)
+            let window: NSWindow
 
-        // Show window — orderFrontRegardless is required for LSUIElement apps
-        window.makeKeyAndOrderFront(nil)
-        window.orderFrontRegardless()
+            if isMain {
+                let overlayView = OverlayView(
+                    timerService: timerService,
+                    settings: settings,
+                    onSkip: { [weak self] in self?.skip() },
+                    onPostpone: { [weak self] in self?.postpone(minutes: 5) }
+                )
+                window = createOverlayWindow(screen: screen, content: overlayView)
 
-        // Activate the app so the overlay can receive keyboard events
-        NSApplication.shared.activate(ignoringOtherApps: true)
+                // Only the main screen window is key (receives keyboard events)
+                window.makeKeyAndOrderFront(nil)
+                window.orderFrontRegardless()
+            } else {
+                let secondaryView = SecondaryOverlayView()
+                window = createOverlayWindow(screen: screen, content: secondaryView)
 
-        // Fade in
-        window.alphaValue = 0
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = settings.dimAnimationDuration
-            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
-            window.animator().alphaValue = 1
+                // Secondary windows show but don't become key
+                window.orderFrontRegardless()
+            }
+
+            // Fade in
+            window.alphaValue = 0
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = settings.dimAnimationDuration
+                context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                window.animator().alphaValue = 1
+            }
+
+            overlayWindows.append(window)
         }
+
+        // Activate the app so the main overlay can receive keyboard events
+        NSApplication.shared.activate(ignoringOtherApps: true)
 
         isShowing = true
     }
 
-    /// Dismiss the overlay immediately.
+    /// Dismiss all overlay windows.
     func dismiss() {
         guard isShowing else { return }
 
-        // Quick fade out
-        if let window = overlayWindow {
-            NSAnimationContext.runAnimationGroup({ context in
-                context.duration = 0.3
-                window.animator().alphaValue = 0
-            }, completionHandler: { [weak self] in
-                Task { @MainActor in
-                    self?.tearDownWindow()
-                }
-            })
-        } else {
-            tearDownWindow()
+        let windows = overlayWindows
+
+        if windows.isEmpty {
+            tearDownAllWindows()
+            return
         }
+
+        // Fade out all windows simultaneously
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.3
+            for window in windows {
+                window.animator().alphaValue = 0
+            }
+        }, completionHandler: { [weak self] in
+            Task { @MainActor in
+                self?.tearDownAllWindows()
+            }
+        })
     }
 
     // MARK: - Private
@@ -99,9 +121,11 @@ final class OverlayService {
         timerService.postponeBreak(minutes: minutes)
     }
 
-    private func tearDownWindow() {
-        overlayWindow?.orderOut(nil)
-        overlayWindow = nil
+    private func tearDownAllWindows() {
+        for window in overlayWindows {
+            window.orderOut(nil)
+        }
+        overlayWindows.removeAll()
         isShowing = false
     }
 
