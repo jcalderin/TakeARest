@@ -193,9 +193,4 @@ final class AppSettings {
 }
 
 // MARK: - Comparable Clamping
-
-private extension Comparable {
-    func clamped(to range: ClosedRange<Self>) -> Self {
-        min(max(self, range.lowerBound), range.upperBound)
-    }
-}
+// Shared `clamped(to:)` extension now lives in BreakTimer.swift
