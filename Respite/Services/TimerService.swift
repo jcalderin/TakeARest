@@ -197,18 +197,20 @@ final class TimerService {
     // MARK: - Private: Scheduling
 
     private func scheduleNextBreak() {
-        let interval = TimeInterval(settings.breakIntervalMinutes * 60)
-        nextBreakDate = dateProvider().addingTimeInterval(interval)
+        let now = dateProvider()
+        let interval = TimeInterval(settings.effectiveIntervalMinutes(at: now) * 60)
+        nextBreakDate = now.addingTimeInterval(interval)
         state = .counting
         postponeCount = 0
         startTicking()
     }
 
     private func startBreak() {
-        let duration = TimeInterval(settings.breakDurationSeconds)
-        let endsAt = dateProvider().addingTimeInterval(duration)
+        let now = dateProvider()
+        let durationSeconds = settings.effectiveDurationSeconds(at: now)
+        let endsAt = now.addingTimeInterval(TimeInterval(durationSeconds))
         state = .onBreak(endsAt: endsAt)
-        secondsRemainingInBreak = settings.breakDurationSeconds
+        secondsRemainingInBreak = durationSeconds
         endActivity()
         onBreakStarted?()
     }

@@ -18,7 +18,7 @@ struct PreferencesView: View {
             }
 
             Tab("Schedules", systemImage: "calendar.badge.clock") {
-                SchedulesTab()
+                SchedulesTab(settings: settings)
             }
 
             Tab("About", systemImage: "info.circle") {

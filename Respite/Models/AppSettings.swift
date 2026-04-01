@@ -85,6 +85,34 @@ final class AppSettings {
         set { overlayColorHex = newValue.toHex() ?? "#000000" }
     }
 
+    // MARK: - Schedules
+
+    /// User-defined break schedules. When empty, global settings are used.
+    var schedules: [BreakSchedule] {
+        didSet { saveSchedules() }
+    }
+
+    /// Whether to use schedules instead of global break timing.
+    var useSchedules: Bool {
+        didSet { defaults.set(useSchedules, forKey: Keys.useSchedules) }
+    }
+
+    /// Returns the currently active schedule based on day and time, or nil if none match.
+    func activeSchedule(at date: Date = Date()) -> BreakSchedule? {
+        guard useSchedules else { return nil }
+        return schedules.first { $0.isActiveNow(date: date) }
+    }
+
+    /// Effective break interval — from active schedule or global setting.
+    func effectiveIntervalMinutes(at date: Date = Date()) -> Int {
+        activeSchedule(at: date)?.breakIntervalMinutes ?? breakIntervalMinutes
+    }
+
+    /// Effective break duration — from active schedule or global setting.
+    func effectiveDurationSeconds(at date: Date = Date()) -> Int {
+        activeSchedule(at: date)?.breakDurationSeconds ?? breakDurationSeconds
+    }
+
     // MARK: - Init
 
     init(defaults: UserDefaults = .standard) {
@@ -100,6 +128,7 @@ final class AppSettings {
             Keys.overlayOpacity: DesignTokens.overlayDefaultOpacity,
             Keys.overlayColorHex: "#000000",
             Keys.breakMessage: DesignTokens.defaultBreakMessage,
+            Keys.useSchedules: false,
         ])
 
         // Load persisted values (or registered defaults)
@@ -111,6 +140,8 @@ final class AppSettings {
         self.overlayOpacity = defaults.double(forKey: Keys.overlayOpacity)
         self.overlayColorHex = defaults.string(forKey: Keys.overlayColorHex) ?? "#000000"
         self.breakMessage = defaults.string(forKey: Keys.breakMessage) ?? DesignTokens.defaultBreakMessage
+        self.useSchedules = defaults.bool(forKey: Keys.useSchedules)
+        self.schedules = Self.loadSchedules(from: defaults)
     }
 
     // MARK: - Formatted Display Helpers
@@ -135,6 +166,18 @@ final class AppSettings {
 
     // MARK: - Keys
 
+    // MARK: - Private: Schedule Persistence
+
+    private func saveSchedules() {
+        guard let data = try? JSONEncoder().encode(schedules) else { return }
+        defaults.set(data, forKey: Keys.schedules)
+    }
+
+    private static func loadSchedules(from defaults: UserDefaults) -> [BreakSchedule] {
+        guard let data = defaults.data(forKey: Keys.schedules) else { return [] }
+        return (try? JSONDecoder().decode([BreakSchedule].self, from: data)) ?? []
+    }
+
     private enum Keys {
         static let breakIntervalMinutes = "breakIntervalMinutes"
         static let breakDurationSeconds = "breakDurationSeconds"
@@ -144,6 +187,8 @@ final class AppSettings {
         static let overlayOpacity = "overlayOpacity"
         static let overlayColorHex = "overlayColorHex"
         static let breakMessage = "breakMessage"
+        static let schedules = "schedules"
+        static let useSchedules = "useSchedules"
     }
 }
 
