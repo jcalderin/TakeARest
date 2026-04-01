@@ -91,6 +91,8 @@ struct MenuBarView: View {
 
     // MARK: - Actions Section
 
+    @State private var showingPauseOptions = false
+
     @ViewBuilder
     private var actionsSection: some View {
         if timerService.isCounting {
@@ -99,6 +101,20 @@ struct MenuBarView: View {
             }
             MenuPanelButton("Skip Next Break", systemImage: "forward.end") {
                 timerService.skipNextBreak()
+            }
+
+            Divider()
+                .padding(.vertical, 2)
+
+            // Pause options
+            if showingPauseOptions {
+                pauseDurationOptions
+            } else {
+                MenuPanelButton("Pause...", systemImage: "pause.circle") {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showingPauseOptions = true
+                    }
+                }
             }
         }
 
@@ -113,6 +129,55 @@ struct MenuBarView: View {
                 timerService.resume()
             }
         }
+    }
+
+    @ViewBuilder
+    private var pauseDurationOptions: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Image(systemName: "pause.circle")
+                    .frame(width: 18)
+                    .foregroundStyle(.secondary)
+                Text("Pause for...")
+                    .respiteCaption()
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showingPauseOptions = false
+                    }
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, DesignTokens.spacingXS)
+            .padding(.vertical, 4)
+
+            MenuPanelButton("15 minutes", systemImage: "clock") {
+                timerService.pause(minutes: 15)
+                showingPauseOptions = false
+            }
+            MenuPanelButton("30 minutes", systemImage: "clock") {
+                timerService.pause(minutes: 30)
+                showingPauseOptions = false
+            }
+            MenuPanelButton("1 hour", systemImage: "clock") {
+                timerService.pause(minutes: 60)
+                showingPauseOptions = false
+            }
+            MenuPanelButton("2 hours", systemImage: "clock") {
+                timerService.pause(minutes: 120)
+                showingPauseOptions = false
+            }
+            MenuPanelButton("Until I Resume", systemImage: "infinity") {
+                timerService.pause(minutes: nil)
+                showingPauseOptions = false
+            }
+        }
+        .transition(.opacity.combined(with: .move(edge: .top)))
     }
 
     // MARK: - Footer Section
