@@ -1,0 +1,553 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1000001000000000000001A /* RespiteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000001A /* RespiteApp.swift */; };
+		A1000003000000000000001A /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000004000000000000001A /* DesignTokens.swift */; };
+		A1000005000000000000001A /* RespiteTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000006000000000000001A /* RespiteTheme.swift */; };
+		A1000007000000000000001A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000008000000000000001A /* Assets.xcassets */; };
+		A1000009000000000000001A /* RespiteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000A000000000000001A /* RespiteTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A100000B000000000000001A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A100000C000000000000001A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A100000D000000000000001A /* Respite */;
+			remoteInfo = Respite;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		A1000002000000000000001A /* RespiteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RespiteApp.swift; sourceTree = "<group>"; };
+		A1000004000000000000001A /* DesignTokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignTokens.swift; sourceTree = "<group>"; };
+		A1000006000000000000001A /* RespiteTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RespiteTheme.swift; sourceTree = "<group>"; };
+		A1000008000000000000001A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A100000E000000000000001A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A100000F000000000000001A /* Respite.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Respite.entitlements; sourceTree = "<group>"; };
+		A1000010000000000000001A /* Respite.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Respite.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A100000A000000000000001A /* RespiteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RespiteTests.swift; sourceTree = "<group>"; };
+		A1000011000000000000001A /* RespiteTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RespiteTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A1000012000000000000001A /* Frameworks (Respite) */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A1000013000000000000001A /* Frameworks (RespiteTests) */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A1000014000000000000001A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1000010000000000000001A /* Respite.app */,
+				A1000011000000000000001A /* RespiteTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A1000015000000000000001A /* Root */ = {
+			isa = PBXGroup;
+			children = (
+				A1000016000000000000001A /* Respite */,
+				A1000017000000000000001A /* RespiteTests */,
+				A1000014000000000000001A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A1000016000000000000001A /* Respite */ = {
+			isa = PBXGroup;
+			children = (
+				A1000018000000000000001A /* App */,
+				A1000019000000000000001A /* Models */,
+				A100001A000000000000001A /* Services */,
+				A100001B000000000000001A /* Views */,
+				A100001C000000000000001A /* Theme */,
+				A100001D000000000000001A /* Utilities */,
+				A100001E000000000000001A /* Resources */,
+				A100000E000000000000001A /* Info.plist */,
+				A100000F000000000000001A /* Respite.entitlements */,
+			);
+			path = Respite;
+			sourceTree = "<group>";
+		};
+		A1000018000000000000001A /* App */ = {
+			isa = PBXGroup;
+			children = (
+				A1000002000000000000001A /* RespiteApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		A1000019000000000000001A /* Models */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A100001A000000000000001A /* Services */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		A100001B000000000000001A /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A100001F000000000000001A /* MenuBar */,
+				A1000020000000000000001A /* Preferences */,
+				A1000021000000000000001A /* Overlay */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		A100001F000000000000001A /* MenuBar */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = MenuBar;
+			sourceTree = "<group>";
+		};
+		A1000020000000000000001A /* Preferences */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Preferences;
+			sourceTree = "<group>";
+		};
+		A1000021000000000000001A /* Overlay */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Overlay;
+			sourceTree = "<group>";
+		};
+		A100001C000000000000001A /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				A1000004000000000000001A /* DesignTokens.swift */,
+				A1000006000000000000001A /* RespiteTheme.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		A100001D000000000000001A /* Utilities */ = {
+			isa = PBXGroup;
+			children = (
+				A1000022000000000000001A /* Extensions */,
+			);
+			path = Utilities;
+			sourceTree = "<group>";
+		};
+		A1000022000000000000001A /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
+		A100001E000000000000001A /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A1000008000000000000001A /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A1000017000000000000001A /* RespiteTests */ = {
+			isa = PBXGroup;
+			children = (
+				A100000A000000000000001A /* RespiteTests.swift */,
+				A1000023000000000000001A /* Services */,
+				A1000024000000000000001A /* Models */,
+			);
+			path = RespiteTests;
+			sourceTree = "<group>";
+		};
+		A1000023000000000000001A /* Services */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		A1000024000000000000001A /* Models */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A100000D000000000000001A /* Respite */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1000025000000000000001A /* Build configuration list for PBXNativeTarget "Respite" */;
+			buildPhases = (
+				A1000026000000000000001A /* Sources */,
+				A1000012000000000000001A /* Frameworks */,
+				A1000027000000000000001A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Respite;
+			productName = Respite;
+			productReference = A1000010000000000000001A /* Respite.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A1000028000000000000001A /* RespiteTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1000029000000000000001A /* Build configuration list for PBXNativeTarget "RespiteTests" */;
+			buildPhases = (
+				A100002A000000000000001A /* Sources */,
+				A1000013000000000000001A /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A100002B000000000000001A /* PBXTargetDependency */,
+			);
+			name = RespiteTests;
+			productName = RespiteTests;
+			productReference = A1000011000000000000001A /* RespiteTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A100000C000000000000001A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				ORGANIZATIONNAME = cholas;
+				TargetAttributes = {
+					A100000D000000000000001A = {
+						CreatedOnToolsVersion = 16.0;
+					};
+					A1000028000000000000001A = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = A100000D000000000000001A;
+					};
+				};
+			};
+			buildConfigurationList = A100002C000000000000001A /* Build configuration list for PBXProject "Respite" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A1000015000000000000001A;
+			productRefGroup = A1000014000000000000001A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A100000D000000000000001A /* Respite */,
+				A1000028000000000000001A /* RespiteTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A1000027000000000000001A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000007000000000000001A /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A1000026000000000000001A /* Sources (Respite) */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000001000000000000001A /* RespiteApp.swift in Sources */,
+				A1000003000000000000001A /* DesignTokens.swift in Sources */,
+				A1000005000000000000001A /* RespiteTheme.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A100002A000000000000001A /* Sources (RespiteTests) */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1000009000000000000001A /* RespiteTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A100002B000000000000001A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A100000D000000000000001A /* Respite */;
+			targetProxy = A100000B000000000000001A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		A100002D000000000000001A /* Debug (Project) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_CYCLE = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		A100002E000000000000001A /* Release (Project) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_CYCLE = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		A100002F000000000000001A /* Debug (Respite) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Respite/Respite.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Respite/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.cholas.Respite";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		A1000030000000000000001A /* Release (Respite) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = Respite/Respite.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Respite/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.cholas.Respite";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		A1000031000000000000001A /* Debug (RespiteTests) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.cholas.RespiteTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Respite.app/Contents/MacOS/Respite";
+			};
+			name = Debug;
+		};
+		A1000032000000000000001A /* Release (RespiteTests) */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.cholas.RespiteTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Respite.app/Contents/MacOS/Respite";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A100002C000000000000001A /* Build configuration list for PBXProject "Respite" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A100002D000000000000001A /* Debug */,
+				A100002E000000000000001A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1000025000000000000001A /* Build configuration list for PBXNativeTarget "Respite" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A100002F000000000000001A /* Debug */,
+				A1000030000000000000001A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1000029000000000000001A /* Build configuration list for PBXNativeTarget "RespiteTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1000031000000000000001A /* Debug */,
+				A1000032000000000000001A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+	};
+	rootObject = A100000C000000000000001A /* Project object */;
+}
