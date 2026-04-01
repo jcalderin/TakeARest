@@ -28,8 +28,8 @@ struct PreferencesView: View {
         .frame(
             minWidth: 480,
             idealWidth: 520,
-            minHeight: 360,
-            idealHeight: 400
+            minHeight: 460,
+            idealHeight: 500
         )
     }
 }

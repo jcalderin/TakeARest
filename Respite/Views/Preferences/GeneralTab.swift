@@ -13,33 +13,58 @@ struct GeneralTab: View {
         Form {
             // MARK: - Break Timing
             Section {
-                Stepper(
-                    "Break every **\(settings.breakIntervalFormatted)**",
-                    value: $settings.breakIntervalMinutes,
-                    in: DesignTokens.minBreakIntervalMinutes...DesignTokens.maxBreakIntervalMinutes,
-                    step: 5
-                )
+                HStack {
+                    Text("Break every")
+                    TextField(
+                        "",
+                        value: $settings.breakIntervalMinutes,
+                        format: .number
+                    )
+                    .frame(width: 56)
+                    .multilineTextAlignment(.trailing)
+                    Stepper(
+                        "",
+                        value: $settings.breakIntervalMinutes,
+                        in: DesignTokens.minBreakIntervalMinutes...DesignTokens.maxBreakIntervalMinutes,
+                        step: 5
+                    )
+                    .labelsHidden()
+                    Text("minutes")
+                        .foregroundStyle(.secondary)
+                }
 
-                Stepper(
-                    "Break lasts **\(settings.breakDurationFormatted)**",
-                    value: $settings.breakDurationSeconds,
-                    in: DesignTokens.minBreakDurationSeconds...DesignTokens.maxBreakDurationSeconds,
-                    step: 10
-                )
+                HStack {
+                    Text("Break lasts")
+                    TextField(
+                        "",
+                        value: $settings.breakDurationSeconds,
+                        format: .number
+                    )
+                    .frame(width: 56)
+                    .multilineTextAlignment(.trailing)
+                    Stepper(
+                        "",
+                        value: $settings.breakDurationSeconds,
+                        in: DesignTokens.minBreakDurationSeconds...DesignTokens.maxBreakDurationSeconds,
+                        step: 10
+                    )
+                    .labelsHidden()
+                    Text("seconds")
+                        .foregroundStyle(.secondary)
+                }
 
+                HStack {
+                    Text("Fade-in duration")
+                    Spacer()
+                    Text(String(format: "%.1fs", settings.dimAnimationDuration))
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
                 Slider(
                     value: $settings.dimAnimationDuration,
                     in: 1.0...DesignTokens.overlayDimDurationMax,
                     step: 0.5
-                ) {
-                    Text("Fade-in duration")
-                } minimumValueLabel: {
-                    Text("1s")
-                        .respiteCaption()
-                } maximumValueLabel: {
-                    Text("15s")
-                        .respiteCaption()
-                }
+                )
             } header: {
                 Text("Break Timing")
             }
