@@ -1,24 +1,30 @@
 import SwiftUI
 
 /// The dropdown menu shown when clicking Respite's menubar icon.
-///
-/// Future phases will add timer status and pause controls above the divider.
 struct MenuBarView: View {
-    /// Opens the Settings window. Uses the environment action provided by
-    /// the `Settings` scene in `RespiteApp`.
+    var timerService: TimerService
+
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
+        // MARK: - Timer Status
+        timerStatusSection
+
+        Divider()
+
+        // MARK: - Timer Controls
+        timerControlsSection
+
+        Divider()
+
+        // MARK: - App Controls
         Button("About Respite") {
             showAboutPanel()
         }
         .keyboardShortcut("i", modifiers: [.command])
 
-        Divider()
-
         Button("Preferences...") {
             openSettings()
-            // Activate so the window appears in front for LSUIElement apps
             NSApplication.shared.activate(ignoringOtherApps: true)
         }
         .keyboardShortcut(",", modifiers: [.command])
@@ -31,9 +37,61 @@ struct MenuBarView: View {
         .keyboardShortcut("q", modifiers: [.command])
     }
 
+    // MARK: - Timer Status Section
+
+    @ViewBuilder
+    private var timerStatusSection: some View {
+        switch timerService.state {
+        case .idle:
+            Text("Timer not started")
+                .foregroundStyle(.secondary)
+
+        case .counting:
+            Text("Next break in \(timerService.countdownFormatted)")
+
+        case .onBreak:
+            Text("On break — \(timerService.countdownFormatted) remaining")
+
+        case .paused(let until):
+            if let formatted = timerService.pauseRemainingFormatted {
+                Text("Paused — resumes in \(formatted)")
+            } else if until == nil {
+                Text("Paused indefinitely")
+            }
+        }
+    }
+
+    // MARK: - Timer Controls Section
+
+    @ViewBuilder
+    private var timerControlsSection: some View {
+        if timerService.isCounting {
+            Button("Take a Break Now") {
+                timerService.takeBreakNow()
+            }
+            .keyboardShortcut("b", modifiers: [.command])
+
+            Button("Skip Next Break") {
+                timerService.skipNextBreak()
+            }
+        }
+
+        if timerService.isOnBreak {
+            Button("Skip Break") {
+                timerService.skipCurrentBreak()
+            }
+        }
+
+        if timerService.isPaused {
+            Button("Resume") {
+                timerService.resume()
+            }
+        }
+    }
+
+    // MARK: - About Panel
+
     private func showAboutPanel() {
-        // Activate the app so the about panel appears in front,
-        // even though we're an LSUIElement (agent) app with no Dock icon.
         NSApplication.shared.activate(ignoringOtherApps: true)
         NSApplication.shared.orderFrontStandardAboutPanel(
             options: [

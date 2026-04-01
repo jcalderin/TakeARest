@@ -18,9 +18,12 @@
 		A100003D000000000000001A /* AboutTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100003E000000000000001A /* AboutTab.swift */; };
 		A100003F000000000000001A /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000040000000000000001A /* AppSettings.swift */; };
 		A1000041000000000000001A /* LaunchAtLoginService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000042000000000000001A /* LaunchAtLoginService.swift */; };
+		A1000045000000000000001A /* TimerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000046000000000000001A /* TimerService.swift */; };
+		A1000047000000000000001A /* Date+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000048000000000000001A /* Date+Extensions.swift */; };
 		A1000007000000000000001A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000008000000000000001A /* Assets.xcassets */; };
 		A1000009000000000000001A /* RespiteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000A000000000000001A /* RespiteTests.swift */; };
 		A1000043000000000000001A /* AppSettingsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000044000000000000001A /* AppSettingsTests.swift */; };
+		A1000049000000000000001A /* TimerServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100004A000000000000001A /* TimerServiceTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -52,6 +55,9 @@
 		A1000040000000000000001A /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettings.swift; sourceTree = "<group>"; };
 		A1000042000000000000001A /* LaunchAtLoginService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginService.swift; sourceTree = "<group>"; };
 		A1000044000000000000001A /* AppSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsTests.swift; sourceTree = "<group>"; };
+		A1000046000000000000001A /* TimerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerService.swift; sourceTree = "<group>"; };
+		A1000048000000000000001A /* Date+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+Extensions.swift"; sourceTree = "<group>"; };
+		A100004A000000000000001A /* TimerServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerServiceTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -126,6 +132,7 @@
 			isa = PBXGroup;
 			children = (
 				A1000042000000000000001A /* LaunchAtLoginService.swift */,
+				A1000046000000000000001A /* TimerService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -187,6 +194,7 @@
 		A1000022000000000000001A /* Extensions */ = {
 			isa = PBXGroup;
 			children = (
+				A1000048000000000000001A /* Date+Extensions.swift */,
 			);
 			path = Extensions;
 			sourceTree = "<group>";
@@ -212,6 +220,7 @@
 		A1000023000000000000001A /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				A100004A000000000000001A /* TimerServiceTests.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -325,6 +334,8 @@
 				A100003D000000000000001A /* AboutTab.swift in Sources */,
 				A100003F000000000000001A /* AppSettings.swift in Sources */,
 				A1000041000000000000001A /* LaunchAtLoginService.swift in Sources */,
+				A1000045000000000000001A /* TimerService.swift in Sources */,
+				A1000047000000000000001A /* Date+Extensions.swift in Sources */,
 				A1000003000000000000001A /* DesignTokens.swift in Sources */,
 				A1000005000000000000001A /* RespiteTheme.swift in Sources */,
 			);
@@ -336,6 +347,7 @@
 			files = (
 				A1000009000000000000001A /* RespiteTests.swift in Sources */,
 				A1000043000000000000001A /* AppSettingsTests.swift in Sources */,
+				A1000049000000000000001A /* TimerServiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
