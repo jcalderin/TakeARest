@@ -10,6 +10,7 @@
 		A1000001000000000000001A /* RespiteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000002000000000000001A /* RespiteApp.swift */; };
 		A1000003000000000000001A /* DesignTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000004000000000000001A /* DesignTokens.swift */; };
 		A1000005000000000000001A /* RespiteTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000006000000000000001A /* RespiteTheme.swift */; };
+		A1000033000000000000001A /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000034000000000000001A /* MenuBarView.swift */; };
 		A1000007000000000000001A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000008000000000000001A /* Assets.xcassets */; };
 		A1000009000000000000001A /* RespiteTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000A000000000000001A /* RespiteTests.swift */; };
 /* End PBXBuildFile section */
@@ -34,6 +35,7 @@
 		A1000010000000000000001A /* Respite.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Respite.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A100000A000000000000001A /* RespiteTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RespiteTests.swift; sourceTree = "<group>"; };
 		A1000011000000000000001A /* RespiteTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RespiteTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1000034000000000000001A /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -123,6 +125,7 @@
 		A100001F000000000000001A /* MenuBar */ = {
 			isa = PBXGroup;
 			children = (
+				A1000034000000000000001A /* MenuBarView.swift */,
 			);
 			path = MenuBar;
 			sourceTree = "<group>";
@@ -290,6 +293,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A1000001000000000000001A /* RespiteApp.swift in Sources */,
+				A1000033000000000000001A /* MenuBarView.swift in Sources */,
 				A1000003000000000000001A /* DesignTokens.swift in Sources */,
 				A1000005000000000000001A /* RespiteTheme.swift in Sources */,
 			);
