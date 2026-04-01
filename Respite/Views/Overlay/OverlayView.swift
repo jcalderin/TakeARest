@@ -13,8 +13,8 @@ struct OverlayView: View {
     var body: some View {
         ZStack {
             // MARK: - Background
-            Color.black
-                .opacity(settings.dimAnimationDuration > 0 ? DesignTokens.overlayDefaultOpacity : 1)
+            settings.overlayColor
+                .opacity(settings.overlayOpacity)
                 .ignoresSafeArea()
 
             // MARK: - Content
@@ -22,7 +22,7 @@ struct OverlayView: View {
                 Spacer()
 
                 // Break message
-                Text(DesignTokens.defaultBreakMessage)
+                Text(settings.breakMessage)
                     .font(.system(size: 40, weight: .light, design: .rounded))
                     .foregroundStyle(.white)
 

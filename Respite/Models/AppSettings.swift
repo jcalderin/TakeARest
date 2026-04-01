@@ -56,6 +56,35 @@ final class AppSettings {
         }
     }
 
+    // MARK: - Appearance Settings
+
+    /// Overlay background opacity (0.5–1.0)
+    var overlayOpacity: Double {
+        didSet {
+            let clamped = overlayOpacity.clamped(
+                to: DesignTokens.overlayMinOpacity...DesignTokens.overlayMaxOpacity
+            )
+            if overlayOpacity != clamped { overlayOpacity = clamped }
+            defaults.set(clamped, forKey: Keys.overlayOpacity)
+        }
+    }
+
+    /// Overlay background color stored as hex string (e.g. "#1A1A2E")
+    var overlayColorHex: String {
+        didSet { defaults.set(overlayColorHex, forKey: Keys.overlayColorHex) }
+    }
+
+    /// Custom break message shown on the overlay
+    var breakMessage: String {
+        didSet { defaults.set(breakMessage, forKey: Keys.breakMessage) }
+    }
+
+    /// Resolved overlay color from the hex string
+    var overlayColor: Color {
+        get { Color(hex: overlayColorHex) ?? .black }
+        set { overlayColorHex = newValue.toHex() ?? "#000000" }
+    }
+
     // MARK: - Init
 
     init(defaults: UserDefaults = .standard) {
@@ -68,6 +97,9 @@ final class AppSettings {
             Keys.showCountdown: true,
             Keys.playSoundOnBreak: false,
             Keys.dimAnimationDuration: DesignTokens.overlayDimDuration,
+            Keys.overlayOpacity: DesignTokens.overlayDefaultOpacity,
+            Keys.overlayColorHex: "#000000",
+            Keys.breakMessage: DesignTokens.defaultBreakMessage,
         ])
 
         // Load persisted values (or registered defaults)
@@ -76,6 +108,9 @@ final class AppSettings {
         self.showCountdown = defaults.bool(forKey: Keys.showCountdown)
         self.playSoundOnBreak = defaults.bool(forKey: Keys.playSoundOnBreak)
         self.dimAnimationDuration = defaults.double(forKey: Keys.dimAnimationDuration)
+        self.overlayOpacity = defaults.double(forKey: Keys.overlayOpacity)
+        self.overlayColorHex = defaults.string(forKey: Keys.overlayColorHex) ?? "#000000"
+        self.breakMessage = defaults.string(forKey: Keys.breakMessage) ?? DesignTokens.defaultBreakMessage
     }
 
     // MARK: - Formatted Display Helpers
@@ -106,6 +141,9 @@ final class AppSettings {
         static let showCountdown = "showCountdown"
         static let playSoundOnBreak = "playSoundOnBreak"
         static let dimAnimationDuration = "dimAnimationDuration"
+        static let overlayOpacity = "overlayOpacity"
+        static let overlayColorHex = "overlayColorHex"
+        static let breakMessage = "breakMessage"
     }
 }
 

@@ -14,7 +14,7 @@ struct PreferencesView: View {
             }
 
             Tab("Appearance", systemImage: "paintbrush") {
-                AppearanceTab()
+                AppearanceTab(settings: settings)
             }
 
             Tab("Schedules", systemImage: "calendar.badge.clock") {

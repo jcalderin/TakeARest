@@ -59,7 +59,7 @@ final class OverlayService {
                 window.makeKeyAndOrderFront(nil)
                 window.orderFrontRegardless()
             } else {
-                let secondaryView = SecondaryOverlayView()
+                let secondaryView = SecondaryOverlayView(settings: settings)
                 window = createOverlayWindow(screen: screen, content: secondaryView)
 
                 // Secondary windows show but don't become key

@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Testing
 @testable import Respite
 
@@ -27,6 +28,9 @@ struct AppSettingsTests {
         #expect(settings.showCountdown == true)
         #expect(settings.playSoundOnBreak == false)
         #expect(settings.dimAnimationDuration == DesignTokens.overlayDimDuration)
+        #expect(settings.overlayOpacity == DesignTokens.overlayDefaultOpacity)
+        #expect(settings.overlayColorHex == "#000000")
+        #expect(settings.breakMessage == DesignTokens.defaultBreakMessage)
     }
 
     // MARK: - Persistence
@@ -124,5 +128,52 @@ struct AppSettingsTests {
 
         settings.breakDurationSeconds = 90
         #expect(settings.breakDurationFormatted == "1m 30s")
+    }
+
+    // MARK: - Appearance Settings
+
+    @Test("Overlay opacity is clamped to valid range")
+    func overlayOpacityClamping() {
+        let (settings, _) = makeSUT()
+
+        settings.overlayOpacity = 0.1  // below minimum of 0.5
+        #expect(settings.overlayOpacity == DesignTokens.overlayMinOpacity)
+
+        settings.overlayOpacity = 2.0  // above maximum of 1.0
+        #expect(settings.overlayOpacity == DesignTokens.overlayMaxOpacity)
+
+        settings.overlayOpacity = 0.75  // within range
+        #expect(settings.overlayOpacity == 0.75)
+    }
+
+    @Test("Break message persists and loads correctly")
+    func breakMessagePersistence() {
+        let suite = UUID().uuidString
+        let (settings, _) = makeSUT(suiteName: suite)
+
+        settings.breakMessage = "Stand up and stretch!"
+        settings.overlayColorHex = "#1A1A2E"
+        settings.overlayOpacity = 0.9
+
+        let (reloaded, _) = makeSUT(suiteName: suite)
+        #expect(reloaded.breakMessage == "Stand up and stretch!")
+        #expect(reloaded.overlayColorHex == "#1A1A2E")
+        #expect(reloaded.overlayOpacity == 0.9)
+    }
+
+    @Test("Color hex round-trip conversion is correct")
+    func colorHexRoundTrip() {
+        // Valid hex
+        let color = Color(hex: "#FF5733")
+        #expect(color != nil)
+
+        // Round-trip
+        if let hex = color?.toHex() {
+            #expect(hex == "#FF5733")
+        }
+
+        // Invalid hex returns nil
+        #expect(Color(hex: "not-a-color") == nil)
+        #expect(Color(hex: "#GGG") == nil)
     }
 }
