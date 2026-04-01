@@ -2,19 +2,18 @@ import SwiftUI
 
 /// A minimal overlay shown on secondary (non-main) displays.
 ///
-/// Displays only the dark background and break message — no controls,
-/// no countdown, no keyboard shortcuts. This avoids multiple key windows
-/// fighting for focus. Reads appearance settings from AppSettings.
+/// Uses the specific `BreakTimer`'s appearance for color, opacity, and message.
+/// No controls or keyboard shortcuts — only the main screen handles interaction.
 struct SecondaryOverlayView: View {
-    var settings: AppSettings
+    var timer: BreakTimer
 
     var body: some View {
         ZStack {
-            settings.overlayColor
-                .opacity(settings.overlayOpacity)
+            timer.overlayColor
+                .opacity(timer.overlayOpacity)
                 .ignoresSafeArea()
 
-            Text(settings.breakMessage)
+            Text(timer.breakMessage)
                 .font(.system(size: 40, weight: .light, design: .rounded))
                 .foregroundStyle(.white.opacity(0.7))
         }

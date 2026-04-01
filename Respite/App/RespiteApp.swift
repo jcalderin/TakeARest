@@ -1,45 +1,49 @@
 import SwiftUI
 
+/// The main entry point for Respite.
+///
+/// Wires together AppSettings → TimerManager → OverlayService,
+/// and connects the menubar panel + preferences window.
 @main
 struct RespiteApp: App {
-    /// Shared settings instance — the single source of truth.
+    /// Persisted app settings (timers array).
     @State private var settings: AppSettings
 
-    /// The core timer engine — drives break scheduling.
-    @State private var timerService: TimerService
+    /// Manages all timer engines and break queueing.
+    @State private var timerManager: TimerManager
 
-    /// Manages the full-screen break overlay window.
+    /// Manages the full-screen break overlay windows.
     @State private var overlayService: OverlayService
 
     var body: some Scene {
         MenuBarExtra("Respite", systemImage: "cup.and.saucer.fill") {
-            MenuBarView(timerService: timerService)
+            MenuBarView(timerManager: timerManager, settings: settings)
         }
         .menuBarExtraStyle(.window)
 
         Settings {
-            PreferencesView(settings: settings)
+            PreferencesView(settings: settings, timerManager: timerManager)
         }
     }
 
     init() {
         let settings = AppSettings()
-        let timer = TimerService(settings: settings)
-        let overlay = OverlayService(settings: settings, timerService: timer)
+        let manager = TimerManager(settings: settings)
+        let overlay = OverlayService(timerManager: manager)
 
         _settings = State(initialValue: settings)
-        _timerService = State(initialValue: timer)
+        _timerManager = State(initialValue: manager)
         _overlayService = State(initialValue: overlay)
 
-        // Wire timer → overlay
-        timer.onBreakStarted = { [overlay] in
-            overlay.show()
+        // Wire manager → overlay
+        manager.onBreakStarted = { [overlay] timer, engine in
+            overlay.show(for: timer, engine: engine)
         }
-        timer.onBreakEnded = { [overlay] in
+        manager.onBreakEnded = { [overlay] in
             overlay.dismiss()
         }
 
-        // Auto-start the timer on launch
-        timer.start()
+        // Start all engines based on current timers + schedules
+        manager.syncEngines()
     }
 }

@@ -3,66 +3,80 @@ import Foundation
 import Testing
 @testable import Respite
 
-/// Tests for TimerService.
+/// Tests for TimerEngine (formerly TimerService).
 ///
 /// Uses an injectable `dateProvider` to control time without waiting.
-/// Each test creates an isolated AppSettings via a fresh UserDefaults suite.
-@Suite("TimerService")
+/// Each test creates an isolated BreakTimer config.
+@Suite("TimerEngine")
 @MainActor
-struct TimerServiceTests {
+struct TimerEngineTests {
 
     private func makeSUT(
         intervalMinutes: Int = 20,
         durationSeconds: Int = 20,
         now: Date = Date(timeIntervalSinceReferenceDate: 0)
-    ) -> (TimerService, AppSettings, CurrentDateHolder) {
-        let defaults = UserDefaults(suiteName: UUID().uuidString)!
-        let settings = AppSettings(defaults: defaults)
-        settings.breakIntervalMinutes = intervalMinutes
-        settings.breakDurationSeconds = durationSeconds
+    ) -> (TimerEngine, CurrentDateHolder) {
+        let timer = BreakTimer(
+            id: UUID(),
+            name: "Test Timer",
+            isEnabled: true,
+            breakIntervalMinutes: intervalMinutes,
+            breakDurationSeconds: durationSeconds,
+            overlayColorHex: "#000000",
+            overlayOpacity: 0.85,
+            breakMessage: "Test break",
+            dimAnimationDuration: 5.0,
+            showCountdown: true,
+            playSoundOnBreak: false,
+            activeDays: [1, 2, 3, 4, 5, 6, 7],
+            startHour: 0,
+            startMinute: 0,
+            endHour: 23,
+            endMinute: 59
+        )
 
         let dateHolder = CurrentDateHolder(now)
-        let timer = TimerService(settings: settings, dateProvider: { dateHolder.now })
-        return (timer, settings, dateHolder)
+        let engine = TimerEngine(breakTimer: timer, dateProvider: { dateHolder.now })
+        return (engine, dateHolder)
     }
 
     // MARK: - State Machine
 
-    @Test("Timer starts in idle state")
+    @Test("Engine starts in idle state")
     func initialState() {
-        let (timer, _, _) = makeSUT()
-        #expect(timer.state == .idle)
-        #expect(!timer.isCounting)
-        #expect(!timer.isOnBreak)
-        #expect(!timer.isPaused)
+        let (engine, _) = makeSUT()
+        #expect(engine.state == .idle)
+        #expect(!engine.isCounting)
+        #expect(!engine.isOnBreak)
+        #expect(!engine.isPaused)
     }
 
     @Test("Start transitions from idle to counting")
     func startTransition() {
-        let (timer, _, _) = makeSUT()
-        timer.start()
-        #expect(timer.state == .counting)
-        #expect(timer.isCounting)
-        #expect(timer.nextBreakDate != nil)
+        let (engine, _) = makeSUT()
+        engine.start()
+        #expect(engine.state == .counting)
+        #expect(engine.isCounting)
+        #expect(engine.nextBreakDate != nil)
     }
 
     @Test("Start is ignored if already counting")
     func startWhenAlreadyCounting() {
-        let (timer, _, _) = makeSUT()
-        timer.start()
-        let firstBreakDate = timer.nextBreakDate
-        timer.start() // should be ignored
-        #expect(timer.nextBreakDate == firstBreakDate)
+        let (engine, _) = makeSUT()
+        engine.start()
+        let firstBreakDate = engine.nextBreakDate
+        engine.start()
+        #expect(engine.nextBreakDate == firstBreakDate)
     }
 
     @Test("Stop returns to idle")
     func stopTransition() {
-        let (timer, _, _) = makeSUT()
-        timer.start()
-        timer.stop()
-        #expect(timer.state == .idle)
-        #expect(timer.nextBreakDate == nil)
-        #expect(timer.secondsUntilBreak == 0)
+        let (engine, _) = makeSUT()
+        engine.start()
+        engine.stop()
+        #expect(engine.state == .idle)
+        #expect(engine.nextBreakDate == nil)
+        #expect(engine.secondsUntilBreak == 0)
     }
 
     // MARK: - Break Scheduling
@@ -70,98 +84,77 @@ struct TimerServiceTests {
     @Test("Next break is scheduled at now + interval")
     func breakScheduledAtCorrectTime() {
         let startTime = Date(timeIntervalSinceReferenceDate: 1000)
-        let (timer, settings, _) = makeSUT(intervalMinutes: 15, now: startTime)
-        timer.start()
+        let (engine, _) = makeSUT(intervalMinutes: 15, now: startTime)
+        engine.start()
 
         let expectedBreak = startTime.addingTimeInterval(15 * 60)
-        #expect(timer.nextBreakDate == expectedBreak)
-        _ = settings // silence unused warning
+        #expect(engine.nextBreakDate == expectedBreak)
     }
 
     @Test("Skip next break reschedules from now")
     func skipNextBreak() {
         let startTime = Date(timeIntervalSinceReferenceDate: 1000)
-        let (timer, _, dateHolder) = makeSUT(intervalMinutes: 20, now: startTime)
-        timer.start()
-        let firstBreakDate = timer.nextBreakDate
+        let (engine, dateHolder) = makeSUT(intervalMinutes: 20, now: startTime)
+        engine.start()
+        let firstBreakDate = engine.nextBreakDate
 
-        // Advance time 5 minutes
         dateHolder.now = startTime.addingTimeInterval(5 * 60)
-        timer.skipNextBreak()
+        engine.skipNextBreak()
 
-        // New break should be 20 minutes from the new "now", not the old one
         let expectedBreak = dateHolder.now.addingTimeInterval(20 * 60)
-        #expect(timer.nextBreakDate == expectedBreak)
-        #expect(timer.nextBreakDate != firstBreakDate)
+        #expect(engine.nextBreakDate == expectedBreak)
+        #expect(engine.nextBreakDate != firstBreakDate)
     }
 
     @Test("Take break now triggers immediately")
     func takeBreakNow() {
-        let (timer, _, _) = makeSUT()
-        timer.start()
-        #expect(timer.isCounting)
+        let (engine, _) = makeSUT()
+        engine.start()
+        #expect(engine.isCounting)
 
         var breakFired = false
-        timer.onBreakStarted = { breakFired = true }
-        timer.takeBreakNow()
+        engine.onBreakStarted = { _ in breakFired = true }
+        engine.takeBreakNow()
 
-        #expect(timer.isOnBreak)
+        #expect(engine.isOnBreak)
         #expect(breakFired)
     }
 
     // MARK: - Break Lifecycle
 
-    @Test("Break fires when time is reached")
-    func breakFiresOnTime() {
-        let startTime = Date(timeIntervalSinceReferenceDate: 1000)
-        let (timer, _, dateHolder) = makeSUT(intervalMinutes: 20, durationSeconds: 30, now: startTime)
-
-        var breakFired = false
-        timer.onBreakStarted = { breakFired = true }
-        timer.start()
-
-        // Advance past break time
-        dateHolder.now = startTime.addingTimeInterval(20 * 60 + 1)
-        // Simulate tick
-        timer.takeBreakNow() // force state change since we can't wait for real timer
-
-        #expect(breakFired)
-        #expect(timer.isOnBreak)
-    }
-
     @Test("Skip current break ends break and reschedules")
     func skipCurrentBreak() {
-        let (timer, _, _) = makeSUT()
-        timer.start()
+        let (engine, _) = makeSUT()
+        engine.start()
 
         var breakEnded = false
-        timer.onBreakEnded = { breakEnded = true }
-        timer.takeBreakNow()
-        #expect(timer.isOnBreak)
+        engine.onBreakEnded = { _ in breakEnded = true }
+        engine.takeBreakNow()
+        #expect(engine.isOnBreak)
 
-        timer.skipCurrentBreak()
-        #expect(timer.isCounting)
+        engine.skipCurrentBreak()
+        #expect(engine.isCounting)
         #expect(breakEnded)
-        #expect(timer.nextBreakDate != nil)
+        #expect(engine.nextBreakDate != nil)
     }
 
     @Test("Postpone break reschedules to now + postpone duration")
     func postponeBreak() {
         let startTime = Date(timeIntervalSinceReferenceDate: 1000)
-        let (timer, _, dateHolder) = makeSUT(now: startTime)
+        let (engine, dateHolder) = makeSUT(now: startTime)
 
-        timer.start()
-        timer.takeBreakNow()
-        #expect(timer.isOnBreak)
+        engine.start()
+        engine.takeBreakNow()
+        #expect(engine.isOnBreak)
 
         var breakEnded = false
-        timer.onBreakEnded = { breakEnded = true }
-        timer.postponeBreak(minutes: 5)
+        engine.onBreakEnded = { _ in breakEnded = true }
+        engine.postponeBreak(minutes: 5)
 
-        #expect(timer.isCounting)
+        #expect(engine.isCounting)
         #expect(breakEnded)
         let expectedBreak = dateHolder.now.addingTimeInterval(5 * 60)
-        #expect(timer.nextBreakDate == expectedBreak)
+        #expect(engine.nextBreakDate == expectedBreak)
     }
 
     // MARK: - Pause
@@ -169,12 +162,12 @@ struct TimerServiceTests {
     @Test("Pause transitions from counting to paused")
     func pauseTransition() {
         let startTime = Date(timeIntervalSinceReferenceDate: 1000)
-        let (timer, _, _) = makeSUT(now: startTime)
-        timer.start()
+        let (engine, _) = makeSUT(now: startTime)
+        engine.start()
 
-        timer.pause(minutes: 30)
-        #expect(timer.isPaused)
-        if case .paused(let until) = timer.state {
+        engine.pause(minutes: 30)
+        #expect(engine.isPaused)
+        if case .paused(let until) = engine.state {
             #expect(until == startTime.addingTimeInterval(30 * 60))
         } else {
             Issue.record("Expected paused state")
@@ -183,11 +176,11 @@ struct TimerServiceTests {
 
     @Test("Indefinite pause has no resume date")
     func indefinitePause() {
-        let (timer, _, _) = makeSUT()
-        timer.start()
-        timer.pause(minutes: nil)
+        let (engine, _) = makeSUT()
+        engine.start()
+        engine.pause(minutes: nil)
 
-        if case .paused(let until) = timer.state {
+        if case .paused(let until) = engine.state {
             #expect(until == nil)
         } else {
             Issue.record("Expected paused state")
@@ -197,53 +190,50 @@ struct TimerServiceTests {
     @Test("Resume from pause schedules a fresh break")
     func resumeFromPause() {
         let startTime = Date(timeIntervalSinceReferenceDate: 1000)
-        let (timer, _, dateHolder) = makeSUT(intervalMinutes: 20, now: startTime)
-        timer.start()
-        timer.pause(minutes: nil)
-        #expect(timer.isPaused)
+        let (engine, dateHolder) = makeSUT(intervalMinutes: 20, now: startTime)
+        engine.start()
+        engine.pause(minutes: nil)
+        #expect(engine.isPaused)
 
-        // Advance time 10 minutes
         dateHolder.now = startTime.addingTimeInterval(10 * 60)
-        timer.resume()
+        engine.resume()
 
-        #expect(timer.isCounting)
-        // Break should be 20 minutes from resume time, not from original start
+        #expect(engine.isCounting)
         let expectedBreak = dateHolder.now.addingTimeInterval(20 * 60)
-        #expect(timer.nextBreakDate == expectedBreak)
+        #expect(engine.nextBreakDate == expectedBreak)
     }
 
     // MARK: - Invalid Transitions
 
     @Test("Cannot pause while on break")
     func cannotPauseOnBreak() {
-        let (timer, _, _) = makeSUT()
-        timer.start()
-        timer.takeBreakNow()
-        #expect(timer.isOnBreak)
+        let (engine, _) = makeSUT()
+        engine.start()
+        engine.takeBreakNow()
+        #expect(engine.isOnBreak)
 
-        timer.pause(minutes: 15)
-        // Should still be on break, not paused
-        #expect(timer.isOnBreak)
+        engine.pause(minutes: 15)
+        #expect(engine.isOnBreak)
     }
 
     @Test("Cannot skip next break while on break")
     func cannotSkipNextWhileOnBreak() {
-        let (timer, _, _) = makeSUT()
-        timer.start()
-        timer.takeBreakNow()
+        let (engine, _) = makeSUT()
+        engine.start()
+        engine.takeBreakNow()
 
-        timer.skipNextBreak() // should be ignored
-        #expect(timer.isOnBreak)
+        engine.skipNextBreak()
+        #expect(engine.isOnBreak)
     }
 
     @Test("Cannot take break now while paused")
     func cannotBreakWhilePaused() {
-        let (timer, _, _) = makeSUT()
-        timer.start()
-        timer.pause(minutes: 15)
+        let (engine, _) = makeSUT()
+        engine.start()
+        engine.pause(minutes: 15)
 
-        timer.takeBreakNow() // should be ignored
-        #expect(timer.isPaused)
+        engine.takeBreakNow()
+        #expect(engine.isPaused)
     }
 
     // MARK: - Postpone Limits
@@ -251,65 +241,57 @@ struct TimerServiceTests {
     @Test("Postpone count increments and blocks after max")
     func postponeLimitEnforced() {
         let startTime = Date(timeIntervalSinceReferenceDate: 1000)
-        let (timer, _, _) = makeSUT(now: startTime)
-        timer.start()
+        let (engine, _) = makeSUT(now: startTime)
+        engine.start()
 
-        // First break cycle — use all 3 postpones
-        for i in 1...TimerService.maxPostponesPerCycle {
-            timer.takeBreakNow()
-            #expect(timer.isOnBreak)
-            #expect(timer.canPostpone)
-            timer.postponeBreak(minutes: 5)
-            #expect(timer.postponeCount == i)
+        for i in 1...TimerEngine.maxPostponesPerCycle {
+            engine.takeBreakNow()
+            #expect(engine.isOnBreak)
+            #expect(engine.canPostpone)
+            engine.postponeBreak(minutes: 5)
+            #expect(engine.postponeCount == i)
         }
 
-        // 4th attempt should be blocked
-        timer.takeBreakNow()
-        #expect(timer.isOnBreak)
-        #expect(!timer.canPostpone)
-        timer.postponeBreak(minutes: 5)
-        // Should still be on break — postpone was rejected
-        #expect(timer.isOnBreak)
-        #expect(timer.postponeCount == TimerService.maxPostponesPerCycle)
+        engine.takeBreakNow()
+        #expect(engine.isOnBreak)
+        #expect(!engine.canPostpone)
+        engine.postponeBreak(minutes: 5)
+        #expect(engine.isOnBreak)
+        #expect(engine.postponeCount == TimerEngine.maxPostponesPerCycle)
     }
 
     @Test("Postpone count resets on new break cycle")
     func postponeCountResetsOnNewCycle() {
         let startTime = Date(timeIntervalSinceReferenceDate: 1000)
-        let (timer, _, _) = makeSUT(now: startTime)
-        timer.start()
+        let (engine, _) = makeSUT(now: startTime)
+        engine.start()
 
-        // Use one postpone
-        timer.takeBreakNow()
-        timer.postponeBreak(minutes: 5)
-        #expect(timer.postponeCount == 1)
+        engine.takeBreakNow()
+        engine.postponeBreak(minutes: 5)
+        #expect(engine.postponeCount == 1)
 
-        // Complete the break cycle by taking and skipping
-        timer.takeBreakNow()
-        timer.skipCurrentBreak()
+        engine.takeBreakNow()
+        engine.skipCurrentBreak()
 
-        // skipCurrentBreak → endBreak → scheduleNextBreak → resets count
-        #expect(timer.postponeCount == 0)
-        #expect(timer.canPostpone)
+        #expect(engine.postponeCount == 0)
+        #expect(engine.canPostpone)
     }
 
     @Test("Skip button always works regardless of postpone count")
     func skipAlwaysAvailable() {
         let startTime = Date(timeIntervalSinceReferenceDate: 1000)
-        let (timer, _, _) = makeSUT(now: startTime)
-        timer.start()
+        let (engine, _) = makeSUT(now: startTime)
+        engine.start()
 
-        // Exhaust all postpones
-        for _ in 1...TimerService.maxPostponesPerCycle {
-            timer.takeBreakNow()
-            timer.postponeBreak(minutes: 5)
+        for _ in 1...TimerEngine.maxPostponesPerCycle {
+            engine.takeBreakNow()
+            engine.postponeBreak(minutes: 5)
         }
 
-        // Skip should still work even though postpone is exhausted
-        timer.takeBreakNow()
-        #expect(!timer.canPostpone)
-        timer.skipCurrentBreak()
-        #expect(timer.isCounting)
+        engine.takeBreakNow()
+        #expect(!engine.canPostpone)
+        engine.skipCurrentBreak()
+        #expect(engine.isCounting)
     }
 
     // MARK: - Sleep/Wake Simulation
@@ -317,19 +299,15 @@ struct TimerServiceTests {
     @Test("After wake past break time, break is rescheduled with grace period")
     func wakeGracePeriod() {
         let startTime = Date(timeIntervalSinceReferenceDate: 1000)
-        let (timer, _, dateHolder) = makeSUT(intervalMinutes: 20, now: startTime)
-        timer.start()
-        let originalBreakDate = timer.nextBreakDate!
+        let (engine, dateHolder) = makeSUT(intervalMinutes: 20, now: startTime)
+        engine.start()
+        let originalBreakDate = engine.nextBreakDate!
 
-        // Simulate sleep and wake 30 minutes later (past the 20-min break)
         dateHolder.now = startTime.addingTimeInterval(30 * 60)
+        engine.handleSystemWake()
 
-        // Call wake handler directly (avoids async notification dispatch)
-        timer.handleSystemWake()
-
-        // The break date should be rescheduled to now + grace period (3s)
-        #expect(timer.isCounting)
-        if let newBreakDate = timer.nextBreakDate {
+        #expect(engine.isCounting)
+        if let newBreakDate = engine.nextBreakDate {
             let gracePeriod = newBreakDate.timeIntervalSince(dateHolder.now)
             #expect(newBreakDate > originalBreakDate)
             #expect(gracePeriod > 0 && gracePeriod <= 3.0)
@@ -342,17 +320,31 @@ struct TimerServiceTests {
 
     @Test("Countdown formatted string is correct")
     func countdownFormatting() {
-        let (timer, _, _) = makeSUT(intervalMinutes: 20)
-        timer.start()
-        // Right after start, should be close to 20:00
-        #expect(timer.secondsUntilBreak == 20 * 60)
-        #expect(timer.countdownFormatted == "20:00")
+        let (engine, _) = makeSUT(intervalMinutes: 20)
+        engine.start()
+        #expect(engine.secondsUntilBreak == 20 * 60)
+        #expect(engine.countdownFormatted == "20:00")
+    }
+
+    // MARK: - Configuration Update
+
+    @Test("Update configuration changes break timer")
+    func updateConfiguration() {
+        let (engine, _) = makeSUT(intervalMinutes: 20)
+        engine.start()
+
+        var newConfig = engine.breakTimer
+        newConfig.breakIntervalMinutes = 30
+        newConfig.breakMessage = "New message"
+        engine.updateConfiguration(newConfig)
+
+        #expect(engine.breakTimer.breakIntervalMinutes == 30)
+        #expect(engine.breakTimer.breakMessage == "New message")
     }
 }
 
 // MARK: - Test Helper
 
-/// Mutable date holder for injecting controllable time into TimerService.
 @MainActor
 final class CurrentDateHolder {
     var now: Date

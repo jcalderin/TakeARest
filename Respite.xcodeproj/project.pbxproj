@@ -13,14 +13,15 @@
 		A1000033000000000000001A /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000034000000000000001A /* MenuBarView.swift */; };
 		A1000035000000000000001A /* PreferencesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000036000000000000001A /* PreferencesView.swift */; };
 		A1000037000000000000001A /* GeneralTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000038000000000000001A /* GeneralTab.swift */; };
-		A1000039000000000000001A /* AppearanceTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100003A000000000000001A /* AppearanceTab.swift */; };
-		A100003B000000000000001A /* SchedulesTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100003C000000000000001A /* SchedulesTab.swift */; };
+		A100005B000000000000001A /* TimersTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100005C000000000000001A /* TimersTab.swift */; };
 		A100003D000000000000001A /* AboutTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100003E000000000000001A /* AboutTab.swift */; };
 		A100003F000000000000001A /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000040000000000000001A /* AppSettings.swift */; };
-		A1000053000000000000001A /* BreakSchedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000054000000000000001A /* BreakSchedule.swift */; };
+		A1000053000000000000001A /* BreakSchedule.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000054000000000000001A /* BreakSchedule.swift */; };  /* kept for migration */
 		A1000057000000000000001A /* BreakTimer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000058000000000000001A /* BreakTimer.swift */; };
 		A1000041000000000000001A /* LaunchAtLoginService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000042000000000000001A /* LaunchAtLoginService.swift */; };
 		A1000045000000000000001A /* TimerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000046000000000000001A /* TimerService.swift */; };
+		A100005D000000000000001A /* TimerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100005E000000000000001A /* TimerEngine.swift */; };
+		A100005F000000000000001A /* TimerManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000060000000000000001A /* TimerManager.swift */; };
 		A1000047000000000000001A /* Date+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000048000000000000001A /* Date+Extensions.swift */; };
 		A1000051000000000000001A /* Color+Hex.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000052000000000000001A /* Color+Hex.swift */; };
 		A100004B000000000000001A /* OverlayService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100004C000000000000001A /* OverlayService.swift */; };
@@ -66,6 +67,9 @@
 		A1000042000000000000001A /* LaunchAtLoginService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginService.swift; sourceTree = "<group>"; };
 		A1000044000000000000001A /* AppSettingsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSettingsTests.swift; sourceTree = "<group>"; };
 		A1000046000000000000001A /* TimerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerService.swift; sourceTree = "<group>"; };
+		A100005E000000000000001A /* TimerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerEngine.swift; sourceTree = "<group>"; };
+		A1000060000000000000001A /* TimerManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerManager.swift; sourceTree = "<group>"; };
+		A100005C000000000000001A /* TimersTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimersTab.swift; sourceTree = "<group>"; };
 		A1000048000000000000001A /* Date+Extensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+Extensions.swift"; sourceTree = "<group>"; };
 		A1000052000000000000001A /* Color+Hex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Color+Hex.swift"; sourceTree = "<group>"; };
 		A100004A000000000000001A /* TimerServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerServiceTests.swift; sourceTree = "<group>"; };
@@ -151,6 +155,8 @@
 			children = (
 				A1000042000000000000001A /* LaunchAtLoginService.swift */,
 				A100004C000000000000001A /* OverlayService.swift */,
+				A100005E000000000000001A /* TimerEngine.swift */,
+				A1000060000000000000001A /* TimerManager.swift */,
 				A1000046000000000000001A /* TimerService.swift */,
 			);
 			path = Services;
@@ -179,8 +185,7 @@
 			children = (
 				A1000036000000000000001A /* PreferencesView.swift */,
 				A1000038000000000000001A /* GeneralTab.swift */,
-				A100003A000000000000001A /* AppearanceTab.swift */,
-				A100003C000000000000001A /* SchedulesTab.swift */,
+				A100005C000000000000001A /* TimersTab.swift */,
 				A100003E000000000000001A /* AboutTab.swift */,
 			);
 			path = Preferences;
@@ -353,14 +358,14 @@
 				A1000033000000000000001A /* MenuBarView.swift in Sources */,
 				A1000035000000000000001A /* PreferencesView.swift in Sources */,
 				A1000037000000000000001A /* GeneralTab.swift in Sources */,
-				A1000039000000000000001A /* AppearanceTab.swift in Sources */,
-				A100003B000000000000001A /* SchedulesTab.swift in Sources */,
+				A100005B000000000000001A /* TimersTab.swift in Sources */,
 				A100003D000000000000001A /* AboutTab.swift in Sources */,
 				A100003F000000000000001A /* AppSettings.swift in Sources */,
 				A1000053000000000000001A /* BreakSchedule.swift in Sources */,
 				A1000057000000000000001A /* BreakTimer.swift in Sources */,
 				A1000041000000000000001A /* LaunchAtLoginService.swift in Sources */,
-				A1000045000000000000001A /* TimerService.swift in Sources */,
+				A100005D000000000000001A /* TimerEngine.swift in Sources */,
+				A100005F000000000000001A /* TimerManager.swift in Sources */,
 				A100004B000000000000001A /* OverlayService.swift in Sources */,
 				A100004D000000000000001A /* OverlayView.swift in Sources */,
 				A100004F000000000000001A /* SecondaryOverlayView.swift in Sources */,
@@ -378,7 +383,6 @@
 				A1000009000000000000001A /* RespiteTests.swift in Sources */,
 				A1000043000000000000001A /* AppSettingsTests.swift in Sources */,
 				A1000049000000000000001A /* TimerServiceTests.swift in Sources */,
-				A1000055000000000000001A /* BreakScheduleTests.swift in Sources */,
 				A1000059000000000000001A /* BreakTimerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

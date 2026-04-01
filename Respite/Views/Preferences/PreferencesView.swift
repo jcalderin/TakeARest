@@ -2,23 +2,22 @@ import SwiftUI
 
 /// Root preferences view with tabbed navigation.
 ///
-/// Uses the native macOS tab style for a platform-consistent look.
-/// Settings are passed down to tabs that need them.
+/// After the multi-timer refactor:
+/// - General: Launch at login only
+/// - Timers: List/detail CRUD for all break timers
+/// - About: App info, version, links
 struct PreferencesView: View {
     var settings: AppSettings
+    var timerManager: TimerManager
 
     var body: some View {
         TabView {
             Tab("General", systemImage: "gearshape") {
-                GeneralTab(settings: settings)
+                GeneralTab()
             }
 
-            Tab("Appearance", systemImage: "paintbrush") {
-                AppearanceTab(settings: settings)
-            }
-
-            Tab("Schedules", systemImage: "calendar.badge.clock") {
-                SchedulesTab(settings: settings)
+            Tab("Timers", systemImage: "timer") {
+                TimersTab(settings: settings, timerManager: timerManager)
             }
 
             Tab("About", systemImage: "info.circle") {
@@ -26,10 +25,10 @@ struct PreferencesView: View {
             }
         }
         .frame(
-            minWidth: 480,
-            idealWidth: 520,
-            minHeight: 460,
-            idealHeight: 500
+            minWidth: 560,
+            idealWidth: 620,
+            minHeight: 480,
+            idealHeight: 540
         )
     }
 }

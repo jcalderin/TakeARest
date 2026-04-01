@@ -2,26 +2,97 @@ import SwiftUI
 
 /// The panel shown when clicking Respite's menubar icon.
 ///
-/// Uses `.window` style MenuBarExtra — renders as a native SwiftUI panel,
-/// not an NSMenu. This gives us partial view updates (no full rebuild
-/// on every tick) and full design freedom for layout and animations.
+/// Shows all active timer countdowns, with actions per-timer and
+/// global pause/resume controls. Inactive timers shown in a
+/// collapsible section.
 struct MenuBarView: View {
-    var timerService: TimerService
+    var timerManager: TimerManager
+    var settings: AppSettings
 
     @Environment(\.openSettings) private var openSettings
     @Environment(\.dismiss) private var dismiss
 
+    @State private var showingPauseOptions = false
+    @State private var showInactive = false
+
     var body: some View {
         VStack(spacing: 0) {
-            // MARK: - Countdown Display
-            countdownSection
+            // MARK: - Active Timers
+            if timerManager.activeEngines.isEmpty && timerManager.inactiveEngines.isEmpty {
+                emptyState
+                    .padding(.horizontal, DesignTokens.spacingMD)
+                    .padding(.vertical, DesignTokens.spacingLG)
+            } else if timerManager.activeEngines.isEmpty {
+                VStack(spacing: DesignTokens.spacing2XS) {
+                    Image(systemName: "moon.zzz")
+                        .font(.system(size: 24))
+                        .foregroundStyle(.secondary)
+                    Text("No active timers")
+                        .respiteCaption()
+                }
                 .padding(.horizontal, DesignTokens.spacingMD)
-                .padding(.top, DesignTokens.spacingMD)
-                .padding(.bottom, DesignTokens.spacingSM)
+                .padding(.vertical, DesignTokens.spacingSM)
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(timerManager.activeEngines) { engine in
+                        TimerRow(engine: engine)
+                    }
+                }
+                .padding(.horizontal, DesignTokens.spacingXS)
+                .padding(.top, DesignTokens.spacingXS)
+            }
+
+            // MARK: - Inactive Timers (collapsible)
+            if !timerManager.inactiveEngines.isEmpty {
+                Divider()
+                    .padding(.vertical, 2)
+
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        showInactive.toggle()
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: showInactive ? "chevron.down" : "chevron.right")
+                            .font(.caption2)
+                            .frame(width: 12)
+                        Text("Inactive (\(timerManager.inactiveEngines.count))")
+                            .respiteCaption()
+                        Spacer()
+                    }
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, DesignTokens.spacingSM)
+                    .padding(.vertical, 4)
+                }
+                .buttonStyle(.plain)
+
+                if showInactive {
+                    VStack(spacing: 0) {
+                        ForEach(timerManager.inactiveEngines) { engine in
+                            HStack(spacing: DesignTokens.spacingXS) {
+                                Circle()
+                                    .fill(engine.breakTimer.overlayColor.opacity(0.5))
+                                    .frame(width: 8, height: 8)
+                                Text(engine.breakTimer.name)
+                                    .respiteCaption()
+                                    .foregroundStyle(.tertiary)
+                                Spacer()
+                                Text(engine.breakTimer.isEnabled ? "Outside schedule" : "Disabled")
+                                    .font(.caption2)
+                                    .foregroundStyle(.quaternary)
+                            }
+                            .padding(.horizontal, DesignTokens.spacingSM)
+                            .padding(.vertical, 3)
+                        }
+                    }
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+                }
+            }
 
             Divider()
+                .padding(.vertical, 2)
 
-            // MARK: - Actions
+            // MARK: - Global Actions
             actionsSection
                 .padding(.horizontal, DesignTokens.spacingXS)
                 .padding(.vertical, DesignTokens.spacing2XS)
@@ -33,84 +104,41 @@ struct MenuBarView: View {
                 .padding(.horizontal, DesignTokens.spacingXS)
                 .padding(.vertical, DesignTokens.spacing2XS)
         }
-        .frame(width: 260)
+        .frame(width: 280)
     }
 
-    // MARK: - Countdown Section
+    // MARK: - Empty State
 
-    @ViewBuilder
-    private var countdownSection: some View {
-        switch timerService.state {
-        case .idle:
-            VStack(spacing: DesignTokens.spacing2XS) {
-                Text("Timer not started")
-                    .respiteBody()
-                    .foregroundStyle(.secondary)
+    private var emptyState: some View {
+        VStack(spacing: DesignTokens.spacingSM) {
+            Image(systemName: "cup.and.saucer")
+                .font(.system(size: 28))
+                .foregroundStyle(.secondary)
+            Text("No timers configured")
+                .respiteBody()
+                .foregroundStyle(.secondary)
+            Text("Open Preferences to add your first break timer.")
+                .respiteCaption()
+                .multilineTextAlignment(.center)
+            Button("Open Preferences") {
+                openSettings()
+                NSApplication.shared.activate(ignoringOtherApps: true)
+                dismiss()
             }
-
-        case .counting:
-            VStack(spacing: DesignTokens.spacing2XS) {
-                Text("Next break in")
-                    .respiteCaption()
-                Text(timerService.countdownFormatted)
-                    .font(.system(size: 36, weight: .light, design: .rounded))
-                    .monospacedDigit()
-                    .contentTransition(.numericText())
-                    .animation(.linear(duration: 0.3), value: timerService.secondsUntilBreak)
-            }
-
-        case .onBreak:
-            VStack(spacing: DesignTokens.spacing2XS) {
-                Text("Taking a break")
-                    .respiteCaption()
-                Text(timerService.countdownFormatted)
-                    .font(.system(size: 36, weight: .light, design: .rounded))
-                    .monospacedDigit()
-                    .foregroundStyle(DesignTokens.primaryBlue)
-                    .contentTransition(.numericText())
-                    .animation(.linear(duration: 0.3), value: timerService.secondsRemainingInBreak)
-            }
-
-        case .paused(let until):
-            VStack(spacing: DesignTokens.spacing2XS) {
-                Image(systemName: "pause.circle")
-                    .font(.system(size: 28))
-                    .foregroundStyle(.secondary)
-                if until != nil, let formatted = timerService.pauseRemainingFormatted {
-                    Text("Paused — resumes in \(formatted)")
-                        .respiteCaption()
-                        .monospacedDigit()
-                } else {
-                    Text("Paused")
-                        .respiteBody()
-                        .foregroundStyle(.secondary)
-                }
-            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
         }
     }
 
     // MARK: - Actions Section
 
-    @State private var showingPauseOptions = false
-
     @ViewBuilder
     private var actionsSection: some View {
-        if timerService.isCounting {
-            MenuPanelButton("Take a Break Now", systemImage: "cup.and.saucer") {
-                timerService.takeBreakNow()
-            }
-            MenuPanelButton("Skip Next Break", systemImage: "forward.end") {
-                timerService.skipNextBreak()
-            }
-
-            Divider()
-                .padding(.vertical, 2)
-
-            // Pause options
+        if timerManager.hasAnyCounting {
             if showingPauseOptions {
                 pauseDurationOptions
             } else {
-                MenuPanelButton("Pause...", systemImage: "pause.circle") {
+                MenuPanelButton("Pause All...", systemImage: "pause.circle") {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         showingPauseOptions = true
                     }
@@ -118,15 +146,9 @@ struct MenuBarView: View {
             }
         }
 
-        if timerService.isOnBreak {
-            MenuPanelButton("End Break", systemImage: "xmark.circle") {
-                timerService.skipCurrentBreak()
-            }
-        }
-
-        if timerService.isPaused {
-            MenuPanelButton("Resume", systemImage: "play.fill") {
-                timerService.resume()
+        if timerManager.hasAnyPaused {
+            MenuPanelButton("Resume All", systemImage: "play.fill") {
+                timerManager.resumeAll()
             }
         }
     }
@@ -138,7 +160,7 @@ struct MenuBarView: View {
                 Image(systemName: "pause.circle")
                     .frame(width: 18)
                     .foregroundStyle(.secondary)
-                Text("Pause for...")
+                Text("Pause all for...")
                     .respiteCaption()
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -157,23 +179,23 @@ struct MenuBarView: View {
             .padding(.vertical, 4)
 
             MenuPanelButton("15 minutes", systemImage: "clock") {
-                timerService.pause(minutes: 15)
+                timerManager.pauseAll(minutes: 15)
                 showingPauseOptions = false
             }
             MenuPanelButton("30 minutes", systemImage: "clock") {
-                timerService.pause(minutes: 30)
+                timerManager.pauseAll(minutes: 30)
                 showingPauseOptions = false
             }
             MenuPanelButton("1 hour", systemImage: "clock") {
-                timerService.pause(minutes: 60)
+                timerManager.pauseAll(minutes: 60)
                 showingPauseOptions = false
             }
             MenuPanelButton("2 hours", systemImage: "clock") {
-                timerService.pause(minutes: 120)
+                timerManager.pauseAll(minutes: 120)
                 showingPauseOptions = false
             }
             MenuPanelButton("Until I Resume", systemImage: "infinity") {
-                timerService.pause(minutes: nil)
+                timerManager.pauseAll(minutes: nil)
                 showingPauseOptions = false
             }
         }
@@ -196,11 +218,88 @@ struct MenuBarView: View {
     }
 }
 
+// MARK: - Timer Row
+
+/// A single timer's status row in the menubar panel.
+private struct TimerRow: View {
+    var engine: TimerEngine
+
+    var body: some View {
+        HStack(spacing: DesignTokens.spacingXS) {
+            // Color indicator
+            Circle()
+                .fill(engine.breakTimer.overlayColor)
+                .frame(width: 8, height: 8)
+
+            // Name
+            Text(engine.breakTimer.name)
+                .respiteCaption()
+                .lineLimit(1)
+
+            Spacer()
+
+            // Status
+            statusView
+        }
+        .padding(.horizontal, DesignTokens.spacingXS)
+        .padding(.vertical, 5)
+    }
+
+    @ViewBuilder
+    private var statusView: some View {
+        switch engine.state {
+        case .counting:
+            Text(engine.countdownFormatted)
+                .font(.system(size: 13, weight: .light, design: .rounded))
+                .monospacedDigit()
+                .contentTransition(.numericText())
+                .animation(.linear(duration: 0.3), value: engine.secondsUntilBreak)
+
+        case .onBreak:
+            HStack(spacing: 4) {
+                Text("Break")
+                    .font(.caption2)
+                    .foregroundStyle(DesignTokens.primaryBlue)
+                Text(engine.countdownFormatted)
+                    .font(.system(size: 13, weight: .light, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(DesignTokens.primaryBlue)
+                    .contentTransition(.numericText())
+                    .animation(.linear(duration: 0.3), value: engine.secondsRemainingInBreak)
+            }
+
+        case .paused(let until):
+            if until != nil, let formatted = engine.pauseRemainingFormatted {
+                HStack(spacing: 4) {
+                    Image(systemName: "pause.fill")
+                        .font(.caption2)
+                    Text(formatted)
+                        .font(.system(size: 13, design: .rounded))
+                        .monospacedDigit()
+                }
+                .foregroundStyle(.secondary)
+            } else {
+                HStack(spacing: 4) {
+                    Image(systemName: "pause.fill")
+                        .font(.caption2)
+                    Text("Paused")
+                        .font(.caption)
+                }
+                .foregroundStyle(.secondary)
+            }
+
+        case .idle:
+            Text("Idle")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+    }
+}
+
 // MARK: - Menu Panel Button
 
-/// A button styled for the menubar panel — full-width, hover highlight,
-/// icon + label layout matching macOS system menus.
-private struct MenuPanelButton: View {
+/// A button styled for the menubar panel — full-width, hover highlight.
+struct MenuPanelButton: View {
     let title: String
     let systemImage: String
     let action: () -> Void

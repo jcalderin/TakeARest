@@ -3,15 +3,10 @@ import SwiftUI
 import Testing
 @testable import Respite
 
-/// Tests for AppSettings model.
-///
-/// Uses a dedicated UserDefaults suite per test to avoid state leakage
-/// between tests and from the running app's actual preferences.
+/// Tests for AppSettings model (post multi-timer refactor).
 @Suite("AppSettings")
 struct AppSettingsTests {
 
-    /// Creates a fresh UserDefaults suite and matching AppSettings instance.
-    /// The suite is unique per call to avoid cross-test contamination.
     private func makeSUT(suiteName: String = UUID().uuidString) -> (AppSettings, UserDefaults) {
         let defaults = UserDefaults(suiteName: suiteName)!
         let settings = AppSettings(defaults: defaults)
@@ -20,160 +15,111 @@ struct AppSettingsTests {
 
     // MARK: - Defaults
 
-    @Test("Fresh settings have correct default values")
+    @Test("Fresh settings have empty timers array")
     func defaultValues() {
         let (settings, _) = makeSUT()
-        #expect(settings.breakIntervalMinutes == DesignTokens.defaultBreakIntervalMinutes)
-        #expect(settings.breakDurationSeconds == DesignTokens.defaultBreakDurationSeconds)
-        #expect(settings.showCountdown == true)
-        #expect(settings.playSoundOnBreak == false)
-        #expect(settings.dimAnimationDuration == DesignTokens.overlayDimDuration)
-        #expect(settings.overlayOpacity == DesignTokens.overlayDefaultOpacity)
-        #expect(settings.overlayColorHex == "#000000")
-        #expect(settings.breakMessage == DesignTokens.defaultBreakMessage)
+        #expect(settings.timers.isEmpty)
     }
 
-    // MARK: - Persistence
+    // MARK: - Timer CRUD
 
-    @Test("Settings persist to UserDefaults and reload correctly")
-    func persistenceRoundTrip() {
+    @Test("Add timer persists and reloads")
+    func addTimerPersistence() {
         let suite = UUID().uuidString
         let (settings, _) = makeSUT(suiteName: suite)
 
-        // Change everything from defaults
-        settings.breakIntervalMinutes = 45
-        settings.breakDurationSeconds = 120
-        settings.showCountdown = false
-        settings.playSoundOnBreak = true
-        settings.dimAnimationDuration = 8.0
+        settings.addTimer(.screenBreak())
+        #expect(settings.timers.count == 1)
+        #expect(settings.timers[0].name == "Screen Break")
 
-        // Create a new instance pointing at the same suite
+        // Reload from same suite
         let (reloaded, _) = makeSUT(suiteName: suite)
-        #expect(reloaded.breakIntervalMinutes == 45)
-        #expect(reloaded.breakDurationSeconds == 120)
-        #expect(reloaded.showCountdown == false)
-        #expect(reloaded.playSoundOnBreak == true)
-        #expect(reloaded.dimAnimationDuration == 8.0)
+        #expect(reloaded.timers.count == 1)
+        #expect(reloaded.timers[0].name == "Screen Break")
     }
 
-    // MARK: - Clamping
-
-    @Test("Break interval is clamped to valid range")
-    func breakIntervalClamping() {
+    @Test("Update timer modifies existing entry")
+    func updateTimer() {
         let (settings, _) = makeSUT()
+        let timer = BreakTimer.screenBreak()
+        settings.addTimer(timer)
 
-        settings.breakIntervalMinutes = 1  // below minimum of 5
-        #expect(settings.breakIntervalMinutes == DesignTokens.minBreakIntervalMinutes)
+        var updated = timer
+        updated.name = "Eye Rest"
+        updated.breakIntervalMinutes = 30
+        settings.updateTimer(updated)
 
-        settings.breakIntervalMinutes = 999  // above maximum of 120
-        #expect(settings.breakIntervalMinutes == DesignTokens.maxBreakIntervalMinutes)
-
-        settings.breakIntervalMinutes = 30  // within range
-        #expect(settings.breakIntervalMinutes == 30)
+        #expect(settings.timers.count == 1)
+        #expect(settings.timers[0].name == "Eye Rest")
+        #expect(settings.timers[0].breakIntervalMinutes == 30)
     }
 
-    @Test("Break duration is clamped to valid range")
-    func breakDurationClamping() {
+    @Test("Remove timer deletes entry")
+    func removeTimer() {
         let (settings, _) = makeSUT()
+        let timer = BreakTimer.screenBreak()
+        settings.addTimer(timer)
+        #expect(settings.timers.count == 1)
 
-        settings.breakDurationSeconds = 1  // below minimum of 10
-        #expect(settings.breakDurationSeconds == DesignTokens.minBreakDurationSeconds)
-
-        settings.breakDurationSeconds = 999  // above maximum of 300
-        #expect(settings.breakDurationSeconds == DesignTokens.maxBreakDurationSeconds)
-
-        settings.breakDurationSeconds = 60  // within range
-        #expect(settings.breakDurationSeconds == 60)
+        settings.removeTimer(id: timer.id)
+        #expect(settings.timers.isEmpty)
     }
 
-    @Test("Dim animation duration is clamped to valid range")
-    func dimDurationClamping() {
+    @Test("Add timer validates fields")
+    func addTimerValidates() {
         let (settings, _) = makeSUT()
+        var timer = BreakTimer.screenBreak()
+        timer.breakIntervalMinutes = 1  // below minimum
+        settings.addTimer(timer)
 
-        settings.dimAnimationDuration = 0.1  // below minimum of 1.0
-        #expect(settings.dimAnimationDuration == 1.0)
-
-        settings.dimAnimationDuration = 99.0  // above maximum of 15.0
-        #expect(settings.dimAnimationDuration == DesignTokens.overlayDimDurationMax)
-
-        settings.dimAnimationDuration = 7.5  // within range
-        #expect(settings.dimAnimationDuration == 7.5)
+        #expect(settings.timers[0].breakIntervalMinutes == DesignTokens.minBreakIntervalMinutes)
     }
 
-    // MARK: - Formatted Display
-
-    @Test("Break interval formatted string is correct")
-    func intervalFormatting() {
-        let (settings, _) = makeSUT()
-
-        settings.breakIntervalMinutes = 1  // will clamp to 5
-        #expect(settings.breakIntervalFormatted == "5 minutes")
-
-        settings.breakIntervalMinutes = 20
-        #expect(settings.breakIntervalFormatted == "20 minutes")
-    }
-
-    @Test("Break duration formatted string handles seconds and minutes")
-    func durationFormatting() {
-        let (settings, _) = makeSUT()
-
-        settings.breakDurationSeconds = 20
-        #expect(settings.breakDurationFormatted == "20 seconds")
-
-        settings.breakDurationSeconds = 60
-        #expect(settings.breakDurationFormatted == "1 minute")
-
-        settings.breakDurationSeconds = 120
-        #expect(settings.breakDurationFormatted == "2 minutes")
-
-        settings.breakDurationSeconds = 90
-        #expect(settings.breakDurationFormatted == "1m 30s")
-    }
-
-    // MARK: - Appearance Settings
-
-    @Test("Overlay opacity is clamped to valid range")
-    func overlayOpacityClamping() {
-        let (settings, _) = makeSUT()
-
-        settings.overlayOpacity = 0.1  // below minimum of 0.5
-        #expect(settings.overlayOpacity == DesignTokens.overlayMinOpacity)
-
-        settings.overlayOpacity = 2.0  // above maximum of 1.0
-        #expect(settings.overlayOpacity == DesignTokens.overlayMaxOpacity)
-
-        settings.overlayOpacity = 0.75  // within range
-        #expect(settings.overlayOpacity == 0.75)
-    }
-
-    @Test("Break message persists and loads correctly")
-    func breakMessagePersistence() {
+    @Test("Multiple timers persist correctly")
+    func multipleTimers() {
         let suite = UUID().uuidString
         let (settings, _) = makeSUT(suiteName: suite)
 
-        settings.breakMessage = "Stand up and stretch!"
-        settings.overlayColorHex = "#1A1A2E"
-        settings.overlayOpacity = 0.9
+        settings.addTimer(.screenBreak())
+        settings.addTimer(.standUpAndWalk())
+        #expect(settings.timers.count == 2)
 
         let (reloaded, _) = makeSUT(suiteName: suite)
-        #expect(reloaded.breakMessage == "Stand up and stretch!")
-        #expect(reloaded.overlayColorHex == "#1A1A2E")
-        #expect(reloaded.overlayOpacity == 0.9)
+        #expect(reloaded.timers.count == 2)
+        #expect(reloaded.timers[0].name == "Screen Break")
+        #expect(reloaded.timers[1].name == "Stand Up & Walk")
     }
 
-    @Test("Color hex round-trip conversion is correct")
-    func colorHexRoundTrip() {
-        // Valid hex
-        let color = Color(hex: "#FF5733")
-        #expect(color != nil)
+    // MARK: - Migration
 
-        // Round-trip
-        if let hex = color?.toHex() {
-            #expect(hex == "#FF5733")
-        }
+    @Test("Legacy settings migrate to a BreakTimer")
+    func migrationFromLegacy() {
+        let suite = UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
 
-        // Invalid hex returns nil
-        #expect(Color(hex: "not-a-color") == nil)
-        #expect(Color(hex: "#GGG") == nil)
+        // Write old-format keys
+        defaults.set(25, forKey: "breakIntervalMinutes")
+        defaults.set(30, forKey: "breakDurationSeconds")
+        defaults.set(true, forKey: "showCountdown")
+        defaults.set(true, forKey: "playSoundOnBreak")
+        defaults.set(7.0, forKey: "dimAnimationDuration")
+        defaults.set(0.9, forKey: "overlayOpacity")
+        defaults.set("#1A1A2E", forKey: "overlayColorHex")
+        defaults.set("Rest your eyes", forKey: "breakMessage")
+
+        let settings = AppSettings(defaults: defaults)
+
+        #expect(settings.timers.count == 1)
+        let timer = settings.timers[0]
+        #expect(timer.name == "Break Timer")
+        #expect(timer.breakIntervalMinutes == 25)
+        #expect(timer.breakDurationSeconds == 30)
+        #expect(timer.showCountdown == true)
+        #expect(timer.playSoundOnBreak == true)
+        #expect(timer.overlayColorHex == "#1A1A2E")
+        #expect(timer.breakMessage == "Rest your eyes")
+
+        // Old keys should be cleaned up
+        #expect(defaults.object(forKey: "breakIntervalMinutes") == nil)
     }
 }

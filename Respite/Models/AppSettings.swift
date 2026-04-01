@@ -3,9 +3,12 @@ import SwiftUI
 
 /// Central settings model backed by UserDefaults.
 ///
-/// All user-configurable preferences live here. Views bind to this
-/// via `@Bindable` and services read from it directly.
-/// Uses `@Observable` (macOS 14+) for clean SwiftUI integration.
+/// After the multi-timer refactor, AppSettings only holds:
+/// - The array of `BreakTimer` configurations (persisted as JSON)
+/// - Global app preferences (launch at login)
+///
+/// All per-timer settings (interval, duration, appearance, schedule)
+/// now live on individual `BreakTimer` instances.
 @Observable
 final class AppSettings {
 
@@ -13,104 +16,11 @@ final class AppSettings {
 
     private let defaults: UserDefaults
 
-    // MARK: - General Settings
+    // MARK: - Timers
 
-    /// Minutes between breaks (5–120)
-    var breakIntervalMinutes: Int {
-        didSet {
-            let clamped = breakIntervalMinutes.clamped(
-                to: DesignTokens.minBreakIntervalMinutes...DesignTokens.maxBreakIntervalMinutes
-            )
-            if breakIntervalMinutes != clamped { breakIntervalMinutes = clamped }
-            defaults.set(clamped, forKey: Keys.breakIntervalMinutes)
-        }
-    }
-
-    /// Seconds each break lasts (10–300)
-    var breakDurationSeconds: Int {
-        didSet {
-            let clamped = breakDurationSeconds.clamped(
-                to: DesignTokens.minBreakDurationSeconds...DesignTokens.maxBreakDurationSeconds
-            )
-            if breakDurationSeconds != clamped { breakDurationSeconds = clamped }
-            defaults.set(clamped, forKey: Keys.breakDurationSeconds)
-        }
-    }
-
-    /// Show a countdown timer during breaks
-    var showCountdown: Bool {
-        didSet { defaults.set(showCountdown, forKey: Keys.showCountdown) }
-    }
-
-    /// Play a sound when a break starts
-    var playSoundOnBreak: Bool {
-        didSet { defaults.set(playSoundOnBreak, forKey: Keys.playSoundOnBreak) }
-    }
-
-    /// Duration of the dim-in animation in seconds (1–15)
-    var dimAnimationDuration: Double {
-        didSet {
-            let clamped = dimAnimationDuration.clamped(to: 1.0...DesignTokens.overlayDimDurationMax)
-            if dimAnimationDuration != clamped { dimAnimationDuration = clamped }
-            defaults.set(clamped, forKey: Keys.dimAnimationDuration)
-        }
-    }
-
-    // MARK: - Appearance Settings
-
-    /// Overlay background opacity (0.5–1.0)
-    var overlayOpacity: Double {
-        didSet {
-            let clamped = overlayOpacity.clamped(
-                to: DesignTokens.overlayMinOpacity...DesignTokens.overlayMaxOpacity
-            )
-            if overlayOpacity != clamped { overlayOpacity = clamped }
-            defaults.set(clamped, forKey: Keys.overlayOpacity)
-        }
-    }
-
-    /// Overlay background color stored as hex string (e.g. "#1A1A2E")
-    var overlayColorHex: String {
-        didSet { defaults.set(overlayColorHex, forKey: Keys.overlayColorHex) }
-    }
-
-    /// Custom break message shown on the overlay
-    var breakMessage: String {
-        didSet { defaults.set(breakMessage, forKey: Keys.breakMessage) }
-    }
-
-    /// Resolved overlay color from the hex string
-    var overlayColor: Color {
-        get { Color(hex: overlayColorHex) ?? .black }
-        set { overlayColorHex = newValue.toHex() ?? "#000000" }
-    }
-
-    // MARK: - Schedules
-
-    /// User-defined break schedules. When empty, global settings are used.
-    var schedules: [BreakSchedule] {
-        didSet { saveSchedules() }
-    }
-
-    /// Whether to use schedules instead of global break timing.
-    var useSchedules: Bool {
-        didSet { defaults.set(useSchedules, forKey: Keys.useSchedules) }
-    }
-
-    /// Returns the currently active schedule based on day and time, or nil if none match.
-    func activeSchedule(at date: Date = Date()) -> BreakSchedule? {
-        guard useSchedules else { return nil }
-        return schedules.first { $0.isActiveNow(date: date) }
-    }
-
-    /// Effective break interval — from active schedule or global setting.
-    func effectiveIntervalMinutes(at date: Date = Date()) -> Int {
-        activeSchedule(at: date)?.breakIntervalMinutes ?? breakIntervalMinutes
-    }
-
-    /// Effective break duration — from active schedule or global setting.
-    func effectiveDurationSeconds(at date: Date = Date()) -> Int {
-        activeSchedule(at: date)?.breakDurationSeconds ?? breakDurationSeconds
+    /// All user-defined break timers. Each is a fully self-contained configuration.
+    var timers: [BreakTimer] {
+        didSet { saveTimers() }
     }
 
     // MARK: - Init
@@ -118,67 +28,148 @@ final class AppSettings {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
 
-        // Register factory defaults so first launch has sensible values
-        defaults.register(defaults: [
-            Keys.breakIntervalMinutes: DesignTokens.defaultBreakIntervalMinutes,
-            Keys.breakDurationSeconds: DesignTokens.defaultBreakDurationSeconds,
-            Keys.showCountdown: true,
-            Keys.playSoundOnBreak: false,
-            Keys.dimAnimationDuration: DesignTokens.overlayDimDuration,
-            Keys.overlayOpacity: DesignTokens.overlayDefaultOpacity,
-            Keys.overlayColorHex: "#000000",
-            Keys.breakMessage: DesignTokens.defaultBreakMessage,
-            Keys.useSchedules: false,
-        ])
-
-        // Load persisted values (or registered defaults)
-        self.breakIntervalMinutes = defaults.integer(forKey: Keys.breakIntervalMinutes)
-        self.breakDurationSeconds = defaults.integer(forKey: Keys.breakDurationSeconds)
-        self.showCountdown = defaults.bool(forKey: Keys.showCountdown)
-        self.playSoundOnBreak = defaults.bool(forKey: Keys.playSoundOnBreak)
-        self.dimAnimationDuration = defaults.double(forKey: Keys.dimAnimationDuration)
-        self.overlayOpacity = defaults.double(forKey: Keys.overlayOpacity)
-        self.overlayColorHex = defaults.string(forKey: Keys.overlayColorHex) ?? "#000000"
-        self.breakMessage = defaults.string(forKey: Keys.breakMessage) ?? DesignTokens.defaultBreakMessage
-        self.useSchedules = defaults.bool(forKey: Keys.useSchedules)
-        self.schedules = Self.loadSchedules(from: defaults)
+        // Load timers (or migrate from old format, or start fresh)
+        self.timers = Self.loadTimers(from: defaults)
     }
 
-    // MARK: - Formatted Display Helpers
+    // MARK: - Timer CRUD Helpers
 
-    /// Break interval as a human-readable string, e.g. "20 minutes"
-    var breakIntervalFormatted: String {
-        breakIntervalMinutes == 1 ? "1 minute" : "\(breakIntervalMinutes) minutes"
+    /// Add a new timer and return it.
+    @discardableResult
+    func addTimer(_ timer: BreakTimer) -> BreakTimer {
+        let validated = timer.validated()
+        timers.append(validated)
+        return validated
     }
 
-    /// Break duration as a human-readable string, e.g. "20 seconds"
-    var breakDurationFormatted: String {
-        if breakDurationSeconds >= 60 {
-            let mins = breakDurationSeconds / 60
-            let secs = breakDurationSeconds % 60
-            if secs == 0 {
-                return mins == 1 ? "1 minute" : "\(mins) minutes"
-            }
-            return "\(mins)m \(secs)s"
+    /// Update an existing timer by ID.
+    func updateTimer(_ timer: BreakTimer) {
+        let validated = timer.validated()
+        if let index = timers.firstIndex(where: { $0.id == validated.id }) {
+            timers[index] = validated
         }
-        return breakDurationSeconds == 1 ? "1 second" : "\(breakDurationSeconds) seconds"
+    }
+
+    /// Remove a timer by ID.
+    func removeTimer(id: UUID) {
+        timers.removeAll { $0.id == id }
+    }
+
+    // MARK: - Private: Persistence
+
+    private func saveTimers() {
+        guard let data = try? JSONEncoder().encode(timers) else { return }
+        defaults.set(data, forKey: Keys.timers)
+    }
+
+    private static func loadTimers(from defaults: UserDefaults) -> [BreakTimer] {
+        // Try loading the new format first
+        if let data = defaults.data(forKey: Keys.timers) {
+            if let timers = try? JSONDecoder().decode([BreakTimer].self, from: data) {
+                return timers
+            }
+        }
+
+        // Try migrating from old single-timer + schedules format
+        if let migrated = migrateFromLegacy(defaults: defaults) {
+            // Save migrated timers in new format
+            if let data = try? JSONEncoder().encode(migrated) {
+                defaults.set(data, forKey: Keys.timers)
+            }
+            // Clean up old keys
+            cleanupLegacyKeys(defaults: defaults)
+            return migrated
+        }
+
+        // Fresh install — no timers yet
+        return []
+    }
+
+    // MARK: - Private: Migration
+
+    /// Migrate from the old single-timer AppSettings format.
+    /// Returns nil if no old keys are found (fresh install).
+    private static func migrateFromLegacy(defaults: UserDefaults) -> [BreakTimer]? {
+        // Check if old keys exist
+        guard defaults.object(forKey: LegacyKeys.breakIntervalMinutes) != nil else {
+            return nil
+        }
+
+        let interval = defaults.integer(forKey: LegacyKeys.breakIntervalMinutes)
+        let duration = defaults.integer(forKey: LegacyKeys.breakDurationSeconds)
+        let showCountdown = defaults.bool(forKey: LegacyKeys.showCountdown)
+        let playSound = defaults.bool(forKey: LegacyKeys.playSoundOnBreak)
+        let dimDuration = defaults.double(forKey: LegacyKeys.dimAnimationDuration)
+        let opacity = defaults.double(forKey: LegacyKeys.overlayOpacity)
+        let colorHex = defaults.string(forKey: LegacyKeys.overlayColorHex) ?? "#000000"
+        let message = defaults.string(forKey: LegacyKeys.breakMessage) ?? DesignTokens.defaultBreakMessage
+
+        // Create a timer from the global settings
+        let globalTimer = BreakTimer(
+            id: UUID(),
+            name: "Break Timer",
+            isEnabled: true,
+            breakIntervalMinutes: interval > 0 ? interval : DesignTokens.defaultBreakIntervalMinutes,
+            breakDurationSeconds: duration > 0 ? duration : DesignTokens.defaultBreakDurationSeconds,
+            overlayColorHex: colorHex,
+            overlayOpacity: opacity > 0 ? opacity : DesignTokens.overlayDefaultOpacity,
+            breakMessage: message,
+            dimAnimationDuration: dimDuration > 0 ? dimDuration : DesignTokens.overlayDimDuration,
+            showCountdown: showCountdown,
+            playSoundOnBreak: playSound,
+            activeDays: [1, 2, 3, 4, 5, 6, 7],
+            startHour: 0,
+            startMinute: 0,
+            endHour: 23,
+            endMinute: 59
+        )
+
+        var result = [globalTimer.validated()]
+
+        // Also migrate old BreakSchedule entries as separate timers
+        if defaults.bool(forKey: LegacyKeys.useSchedules),
+           let scheduleData = defaults.data(forKey: LegacyKeys.schedules),
+           let schedules = try? JSONDecoder().decode([BreakSchedule].self, from: scheduleData) {
+            for schedule in schedules {
+                let timer = BreakTimer(
+                    id: UUID(),
+                    name: schedule.name,
+                    isEnabled: schedule.isEnabled,
+                    breakIntervalMinutes: schedule.breakIntervalMinutes,
+                    breakDurationSeconds: schedule.breakDurationSeconds,
+                    overlayColorHex: colorHex,
+                    overlayOpacity: opacity > 0 ? opacity : DesignTokens.overlayDefaultOpacity,
+                    breakMessage: message,
+                    dimAnimationDuration: dimDuration > 0 ? dimDuration : DesignTokens.overlayDimDuration,
+                    showCountdown: showCountdown,
+                    playSoundOnBreak: playSound,
+                    activeDays: schedule.activeDays,
+                    startHour: schedule.startHour,
+                    startMinute: schedule.startMinute,
+                    endHour: schedule.endHour,
+                    endMinute: schedule.endMinute
+                )
+                result.append(timer.validated())
+            }
+        }
+
+        return result
+    }
+
+    private static func cleanupLegacyKeys(defaults: UserDefaults) {
+        for key in LegacyKeys.all {
+            defaults.removeObject(forKey: key)
+        }
     }
 
     // MARK: - Keys
 
-    // MARK: - Private: Schedule Persistence
-
-    private func saveSchedules() {
-        guard let data = try? JSONEncoder().encode(schedules) else { return }
-        defaults.set(data, forKey: Keys.schedules)
-    }
-
-    private static func loadSchedules(from defaults: UserDefaults) -> [BreakSchedule] {
-        guard let data = defaults.data(forKey: Keys.schedules) else { return [] }
-        return (try? JSONDecoder().decode([BreakSchedule].self, from: data)) ?? []
-    }
-
     private enum Keys {
+        static let timers = "breakTimers_v2"
+    }
+
+    /// Keys from the old single-timer format, used only for migration.
+    private enum LegacyKeys {
         static let breakIntervalMinutes = "breakIntervalMinutes"
         static let breakDurationSeconds = "breakDurationSeconds"
         static let showCountdown = "showCountdown"
@@ -189,8 +180,11 @@ final class AppSettings {
         static let breakMessage = "breakMessage"
         static let schedules = "schedules"
         static let useSchedules = "useSchedules"
+
+        static let all = [
+            breakIntervalMinutes, breakDurationSeconds, showCountdown,
+            playSoundOnBreak, dimAnimationDuration, overlayOpacity,
+            overlayColorHex, breakMessage, schedules, useSchedules,
+        ]
     }
 }
-
-// MARK: - Comparable Clamping
-// Shared `clamped(to:)` extension now lives in BreakTimer.swift

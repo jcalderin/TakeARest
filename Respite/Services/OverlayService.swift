@@ -6,8 +6,10 @@ import SwiftUI
 /// Creates a borderless NSWindow at `.screenSaver` level for each screen.
 /// The main screen gets the interactive `OverlayView` with countdown,
 /// skip/postpone controls, and keyboard shortcuts. Secondary screens get
-/// a simpler `SecondaryOverlayView` — just the dimmed background and
-/// break message — to avoid multiple key windows fighting for focus.
+/// a simpler `SecondaryOverlayView`.
+///
+/// Each `show(for:engine:)` call uses the specific `BreakTimer`'s appearance
+/// settings — color, opacity, message — so different timers look different.
 @MainActor
 @Observable
 final class OverlayService {
@@ -17,25 +19,22 @@ final class OverlayService {
 
     // MARK: - Dependencies
 
-    private let settings: AppSettings
-    private let timerService: TimerService
+    private let timerManager: TimerManager
 
     // MARK: - Windows
 
-    /// One overlay window per connected screen.
     private var overlayWindows: [NSWindow] = []
 
     // MARK: - Init
 
-    init(settings: AppSettings, timerService: TimerService) {
-        self.settings = settings
-        self.timerService = timerService
+    init(timerManager: TimerManager) {
+        self.timerManager = timerManager
     }
 
     // MARK: - Public API
 
-    /// Show break overlays on all connected screens.
-    func show() {
+    /// Show break overlays on all connected screens for the given timer.
+    func show(for timer: BreakTimer, engine: TimerEngine) {
         guard !isShowing else { return }
 
         let screens = NSScreen.screens
@@ -48,28 +47,24 @@ final class OverlayService {
 
             if isMain {
                 let overlayView = OverlayView(
-                    timerService: timerService,
-                    settings: settings,
-                    onSkip: { [weak self] in self?.skip() },
-                    onPostpone: { [weak self] in self?.postpone(minutes: 5) }
+                    engine: engine,
+                    timer: timer,
+                    onSkip: { [weak self] in self?.skip(engine: engine) },
+                    onPostpone: { [weak self] in self?.postpone(engine: engine, minutes: 5) }
                 )
                 window = createOverlayWindow(screen: screen, content: overlayView)
-
-                // Only the main screen window is key (receives keyboard events)
                 window.makeKeyAndOrderFront(nil)
                 window.orderFrontRegardless()
             } else {
-                let secondaryView = SecondaryOverlayView(settings: settings)
+                let secondaryView = SecondaryOverlayView(timer: timer)
                 window = createOverlayWindow(screen: screen, content: secondaryView)
-
-                // Secondary windows show but don't become key
                 window.orderFrontRegardless()
             }
 
             // Fade in
             window.alphaValue = 0
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = settings.dimAnimationDuration
+                context.duration = timer.dimAnimationDuration
                 context.timingFunction = CAMediaTimingFunction(name: .easeIn)
                 window.animator().alphaValue = 1
             }
@@ -77,9 +72,7 @@ final class OverlayService {
             overlayWindows.append(window)
         }
 
-        // Activate the app so the main overlay can receive keyboard events
         NSApplication.shared.activate(ignoringOtherApps: true)
-
         isShowing = true
     }
 
@@ -94,7 +87,6 @@ final class OverlayService {
             return
         }
 
-        // Fade out all windows simultaneously
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.3
             for window in windows {
@@ -109,16 +101,12 @@ final class OverlayService {
 
     // MARK: - Private
 
-    private func skip() {
-        // Tell the timer the break was skipped — this fires onBreakEnded
-        // which calls dismiss() via the callback wired in RespiteApp.
-        timerService.skipCurrentBreak()
+    private func skip(engine: TimerEngine) {
+        engine.skipCurrentBreak()
     }
 
-    private func postpone(minutes: Int) {
-        // Tell the timer to postpone — this fires onBreakEnded
-        // which calls dismiss() via the callback wired in RespiteApp.
-        timerService.postponeBreak(minutes: minutes)
+    private func postpone(engine: TimerEngine, minutes: Int) {
+        engine.postponeBreak(minutes: minutes)
     }
 
     private func tearDownAllWindows() {
@@ -138,31 +126,19 @@ final class OverlayService {
             screen: screen
         )
 
-        // Above everything: full-screen apps, Dock, menu bar
         window.level = .screenSaver
-
-        // Appear on all Spaces, float above full-screen apps, don't show in Expose
         window.collectionBehavior = [
             .canJoinAllSpaces,
             .fullScreenAuxiliary,
             .stationary,
             .ignoresCycle,
         ]
-
-        // Transparent window — SwiftUI content provides the visual background
         window.isOpaque = false
         window.backgroundColor = .clear
-
-        // Cover the entire screen including menu bar area
         window.setFrame(screen.frame, display: true)
-
-        // Accept mouse and keyboard events
         window.ignoresMouseEvents = false
-
-        // Exclude from screen sharing (Zoom, Teams, etc.)
         window.sharingType = .none
 
-        // Host SwiftUI content
         let hostingView = NSHostingView(rootView: content)
         hostingView.frame = window.contentView!.bounds
         hostingView.autoresizingMask = [.width, .height]

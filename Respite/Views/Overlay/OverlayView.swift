@@ -2,19 +2,20 @@ import SwiftUI
 
 /// The full-screen break overlay content.
 ///
-/// Shown inside the overlay NSWindow. Displays a calming background,
-/// a break message, a countdown, and dismiss/postpone controls.
+/// Shown inside the overlay NSWindow on the main display. Uses the
+/// specific `BreakTimer`'s appearance settings for color, opacity,
+/// and message. Receives its engine for countdown and state queries.
 struct OverlayView: View {
-    var timerService: TimerService
-    var settings: AppSettings
+    var engine: TimerEngine
+    var timer: BreakTimer
     var onSkip: () -> Void
     var onPostpone: () -> Void
 
     var body: some View {
         ZStack {
             // MARK: - Background
-            settings.overlayColor
-                .opacity(settings.overlayOpacity)
+            timer.overlayColor
+                .opacity(timer.overlayOpacity)
                 .ignoresSafeArea()
 
             // MARK: - Content
@@ -22,23 +23,23 @@ struct OverlayView: View {
                 Spacer()
 
                 // Break message
-                Text(settings.breakMessage)
+                Text(timer.breakMessage)
                     .font(.system(size: 40, weight: .light, design: .rounded))
                     .foregroundStyle(.white)
 
                 // Countdown
-                if settings.showCountdown {
-                    Text(timerService.countdownFormatted)
+                if timer.showCountdown {
+                    Text(engine.countdownFormatted)
                         .respiteHero()
                         .monospacedDigit()
                         .contentTransition(.numericText())
-                        .animation(.linear(duration: 0.3), value: timerService.secondsRemainingInBreak)
+                        .animation(.linear(duration: 0.3), value: engine.secondsRemainingInBreak)
                 }
 
                 // Progress bar
                 BreakProgressBar(
-                    elapsed: settings.breakDurationSeconds - timerService.secondsRemainingInBreak,
-                    total: settings.breakDurationSeconds
+                    elapsed: timer.breakDurationSeconds - engine.secondsRemainingInBreak,
+                    total: timer.breakDurationSeconds
                 )
                 .frame(width: 300)
 
@@ -46,8 +47,8 @@ struct OverlayView: View {
 
                 // MARK: - Controls
                 HStack(spacing: DesignTokens.spacingMD) {
-                    // Postpone — medium prominence (hidden after max postpones)
-                    if timerService.canPostpone {
+                    // Postpone — hidden after max postpones
+                    if engine.canPostpone {
                         Button(action: onPostpone) {
                             Label("5 More Minutes", systemImage: "clock.arrow.circlepath")
                                 .padding(.horizontal, DesignTokens.spacingMD)
@@ -59,7 +60,7 @@ struct OverlayView: View {
                         .transition(.opacity)
                     }
 
-                    // Skip — lower prominence
+                    // Skip
                     Button(action: onSkip) {
                         Text("Skip")
                             .padding(.horizontal, DesignTokens.spacingSM)
@@ -68,10 +69,10 @@ struct OverlayView: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(.white.opacity(0.6))
                 }
-                .animation(.easeInOut(duration: 0.3), value: timerService.canPostpone)
+                .animation(.easeInOut(duration: 0.3), value: engine.canPostpone)
 
                 // Keyboard hint
-                Text(timerService.canPostpone
+                Text(engine.canPostpone
                      ? "Press Esc to skip  ·  Space to postpone"
                      : "Press Esc to skip")
                     .font(.system(size: 11))
@@ -84,7 +85,7 @@ struct OverlayView: View {
             return .handled
         }
         .onKeyPress(.space) {
-            guard timerService.canPostpone else { return .ignored }
+            guard engine.canPostpone else { return .ignored }
             onPostpone()
             return .handled
         }
@@ -93,7 +94,6 @@ struct OverlayView: View {
 
 // MARK: - Progress Bar
 
-/// A thin horizontal progress bar showing break completion.
 struct BreakProgressBar: View {
     let elapsed: Int
     let total: Int
@@ -106,12 +106,10 @@ struct BreakProgressBar: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
-                // Track
                 RoundedRectangle(cornerRadius: 2)
                     .fill(.white.opacity(0.15))
                     .frame(height: 4)
 
-                // Fill
                 RoundedRectangle(cornerRadius: 2)
                     .fill(.white.opacity(0.5))
                     .frame(width: geometry.size.width * progress, height: 4)
