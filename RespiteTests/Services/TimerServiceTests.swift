@@ -316,6 +316,36 @@ struct TimerEngineTests {
         }
     }
 
+    @Test("Timed pause resumes if wake occurs past its resume time")
+    func wakeResumesExpiredPause() {
+        let startTime = Date(timeIntervalSinceReferenceDate: 1000)
+        let (engine, dateHolder) = makeSUT(intervalMinutes: 20, now: startTime)
+        engine.start()
+        engine.pause(minutes: 30)
+        #expect(engine.isPaused)
+
+        // Slept past the resume time, then woke.
+        dateHolder.now = startTime.addingTimeInterval(31 * 60)
+        engine.handleSystemWake()
+
+        #expect(engine.isCounting)
+    }
+
+    @Test("Break interrupted by sleep ends on wake")
+    func wakeEndsExpiredBreak() {
+        let startTime = Date(timeIntervalSinceReferenceDate: 1000)
+        let (engine, dateHolder) = makeSUT(durationSeconds: 20, now: startTime)
+        engine.start()
+        engine.takeBreakNow()
+        #expect(engine.isOnBreak)
+
+        // Slept past the break end, then woke.
+        dateHolder.now = startTime.addingTimeInterval(60)
+        engine.handleSystemWake()
+
+        #expect(engine.isCounting)
+    }
+
     // MARK: - Countdown Formatting
 
     @Test("Countdown formatted string is correct")

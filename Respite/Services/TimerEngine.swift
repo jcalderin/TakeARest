@@ -72,6 +72,10 @@ final class TimerEngine: Identifiable {
     private var workspaceObservers: [NSObjectProtocol] = []
     private var activityToken: NSObjectProtocol?
 
+    /// Whether the current activity assertion also blocks idle system sleep.
+    /// Tracked so we only re-acquire the assertion when the phase changes.
+    private var activityBlocksSleep = false
+
     /// Grace period after system wake before triggering a break (seconds).
     private static let wakeGracePeriod: TimeInterval = 3.0
 
@@ -270,9 +274,10 @@ final class TimerEngine: Identifiable {
                 startBreak()
             } else {
                 secondsUntilBreak = Int(ceil(remaining))
-                if remaining <= 60 {
-                    beginActivityIfNeeded()
-                }
+                // Prevent App Nap for the whole countdown so the 1s tick keeps
+                // firing over long idle periods; in the final minute also block
+                // idle sleep so the break reliably fires.
+                updateActivity(blockSleep: remaining <= 60)
             }
 
         case .onBreak(let endsAt):
@@ -319,16 +324,36 @@ final class TimerEngine: Identifiable {
     }
 
     /// Recalculates after system wake. Internal for test access.
+    ///
+    /// The tick loop is stopped on sleep, so every non-idle state must restart
+    /// it here — otherwise a timed pause never resumes and an interrupted break
+    /// never ends.
     func handleSystemWake() {
-        guard state == .counting, let breakDate = nextBreakDate else { return }
         let now = dateProvider()
 
-        if now >= breakDate {
-            let graceDate = now.addingTimeInterval(Self.wakeGracePeriod)
-            nextBreakDate = graceDate
+        switch state {
+        case .counting:
+            guard let breakDate = nextBreakDate else { return }
+            // If we slept past the break, fire after a short grace period.
+            if now >= breakDate {
+                nextBreakDate = now.addingTimeInterval(Self.wakeGracePeriod)
+            }
             startTicking()
-        } else {
+
+        case .onBreak:
             startTicking()
+
+        case .paused(let until):
+            // Only timed pauses need the tick loop (to detect resume time).
+            guard let until else { return }
+            if now >= until {
+                resume()
+            } else {
+                startTicking()
+            }
+
+        case .idle:
+            break
         }
     }
 
@@ -339,11 +364,24 @@ final class TimerEngine: Identifiable {
 
     // MARK: - Private: App Nap Prevention
 
-    private func beginActivityIfNeeded() {
-        guard activityToken == nil else { return }
+    /// Hold (or upgrade) an activity assertion while counting down.
+    ///
+    /// - `blockSleep == false`: prevent App Nap only, still allowing the Mac to
+    ///   sleep when idle — used for the bulk of the countdown.
+    /// - `blockSleep == true`: also block idle system sleep so the imminent
+    ///   break fires — used in the final minute.
+    ///
+    /// Re-acquires only when the phase changes, so it's cheap to call each tick.
+    private func updateActivity(blockSleep: Bool) {
+        guard activityToken == nil || blockSleep != activityBlocksSleep else { return }
+        endActivity()
+        activityBlocksSleep = blockSleep
+        let options: ProcessInfo.ActivityOptions = blockSleep
+            ? [.userInitiated, .idleSystemSleepDisabled]
+            : [.userInitiatedAllowingIdleSystemSleep]
         activityToken = ProcessInfo.processInfo.beginActivity(
-            options: [.userInitiated, .idleSystemSleepDisabled],
-            reason: "Break timer '\(breakTimer.name)' about to fire"
+            options: options,
+            reason: "Break timer '\(breakTimer.name)' counting down"
         )
     }
 
@@ -352,5 +390,6 @@ final class TimerEngine: Identifiable {
             ProcessInfo.processInfo.endActivity(token)
             activityToken = nil
         }
+        activityBlocksSleep = false
     }
 }
