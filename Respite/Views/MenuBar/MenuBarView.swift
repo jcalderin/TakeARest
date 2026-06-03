@@ -2,9 +2,9 @@ import SwiftUI
 
 /// The panel shown when clicking Respite's menubar icon.
 ///
-/// Shows all active timer countdowns, with actions per-timer and
-/// global pause/resume controls. Inactive timers shown in a
-/// collapsible section.
+/// Shows all active timer countdowns with per-timer actions,
+/// global pause/resume controls, and inactive timer overview.
+/// Inactive timers shown in a collapsible section.
 struct MenuBarView: View {
     var timerManager: TimerManager
     var settings: AppSettings
@@ -17,6 +17,20 @@ struct MenuBarView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            // MARK: - Header
+            HStack(spacing: DesignTokens.spacingXS) {
+                Image(systemName: "cup.and.saucer.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(DesignTokens.primaryBlue)
+                Text("Respite")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                Spacer()
+            }
+            .padding(.horizontal, DesignTokens.spacingSM)
+            .padding(.vertical, DesignTokens.spacingXS)
+
+            Divider()
+
             // MARK: - Active Timers
             if timerManager.activeEngines.isEmpty && timerManager.inactiveEngines.isEmpty {
                 emptyState
@@ -25,44 +39,48 @@ struct MenuBarView: View {
             } else if timerManager.activeEngines.isEmpty {
                 VStack(spacing: DesignTokens.spacing2XS) {
                     Image(systemName: "moon.zzz")
-                        .font(.system(size: 24))
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 20))
+                        .foregroundStyle(.tertiary)
                     Text("No active timers")
-                        .respiteCaption()
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
                 }
-                .padding(.horizontal, DesignTokens.spacingMD)
-                .padding(.vertical, DesignTokens.spacingSM)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, DesignTokens.spacingMD)
             } else {
-                VStack(spacing: 0) {
+                VStack(spacing: 1) {
                     ForEach(timerManager.activeEngines) { engine in
-                        TimerRow(engine: engine)
+                        TimerRow(
+                            engine: engine,
+                            timerManager: timerManager,
+                            settings: settings
+                        )
                     }
                 }
                 .padding(.horizontal, DesignTokens.spacingXS)
-                .padding(.top, DesignTokens.spacingXS)
+                .padding(.vertical, DesignTokens.spacingXS)
             }
 
             // MARK: - Inactive Timers (collapsible)
             if !timerManager.inactiveEngines.isEmpty {
                 Divider()
-                    .padding(.vertical, 2)
 
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
                         showInactive.toggle()
                     }
                 } label: {
-                    HStack {
+                    HStack(spacing: 4) {
                         Image(systemName: showInactive ? "chevron.down" : "chevron.right")
-                            .font(.caption2)
-                            .frame(width: 12)
+                            .font(.system(size: 8, weight: .semibold))
+                            .frame(width: 10)
                         Text("Inactive (\(timerManager.inactiveEngines.count))")
-                            .respiteCaption()
+                            .font(.system(size: 11))
                         Spacer()
                     }
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.tertiary)
                     .padding(.horizontal, DesignTokens.spacingSM)
-                    .padding(.vertical, 4)
+                    .padding(.vertical, 5)
                 }
                 .buttonStyle(.plain)
 
@@ -71,15 +89,31 @@ struct MenuBarView: View {
                         ForEach(timerManager.inactiveEngines) { engine in
                             HStack(spacing: DesignTokens.spacingXS) {
                                 Circle()
-                                    .fill(engine.breakTimer.overlayColor.opacity(0.5))
-                                    .frame(width: 8, height: 8)
+                                    .fill(engine.breakTimer.overlayColor.opacity(0.4))
+                                    .frame(width: 6, height: 6)
                                 Text(engine.breakTimer.name)
-                                    .respiteCaption()
+                                    .font(.system(size: 11))
                                     .foregroundStyle(.tertiary)
+                                    .lineLimit(1)
                                 Spacer()
-                                Text(engine.breakTimer.isEnabled ? "Outside schedule" : "Disabled")
-                                    .font(.caption2)
+                                Text(engine.breakTimer.isEnabled ? "Outside hours" : "Disabled")
+                                    .font(.system(size: 10))
                                     .foregroundStyle(.quaternary)
+
+                                // Enable / disable toggle
+                                Toggle("", isOn: Binding(
+                                    get: { engine.breakTimer.isEnabled },
+                                    set: { _ in
+                                        var updated = engine.breakTimer
+                                        updated.isEnabled.toggle()
+                                        settings.updateTimer(updated)
+                                        timerManager.syncEngines()
+                                    }
+                                ))
+                                .labelsHidden()
+                                .toggleStyle(.switch)
+                                .controlSize(.mini)
+                                .tint(DesignTokens.primaryBlue)
                             }
                             .padding(.horizontal, DesignTokens.spacingSM)
                             .padding(.vertical, 3)
@@ -90,7 +124,6 @@ struct MenuBarView: View {
             }
 
             Divider()
-                .padding(.vertical, 2)
 
             // MARK: - Global Actions
             actionsSection
@@ -161,7 +194,7 @@ struct MenuBarView: View {
                     .frame(width: 18)
                     .foregroundStyle(.secondary)
                 Text("Pause all for...")
-                    .respiteCaption()
+                    .font(.system(size: 12))
                     .foregroundStyle(.secondary)
                 Spacer()
                 Button {
@@ -221,29 +254,77 @@ struct MenuBarView: View {
 // MARK: - Timer Row
 
 /// A single timer's status row in the menubar panel.
+/// Tapping expands to reveal per-timer action buttons.
 private struct TimerRow: View {
     var engine: TimerEngine
+    var timerManager: TimerManager
+    var settings: AppSettings
+
+    @State private var isExpanded = false
+    @State private var isHovering = false
 
     var body: some View {
-        HStack(spacing: DesignTokens.spacingXS) {
-            // Color indicator
-            Circle()
-                .fill(engine.breakTimer.overlayColor)
-                .frame(width: 8, height: 8)
+        VStack(spacing: 0) {
+            // MARK: - Main Row
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    isExpanded.toggle()
+                }
+            } label: {
+                HStack(spacing: DesignTokens.spacingXS) {
+                    // Color indicator
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(engine.breakTimer.overlayColor)
+                        .frame(width: 4, height: 28)
 
-            // Name
-            Text(engine.breakTimer.name)
-                .respiteCaption()
-                .lineLimit(1)
+                    // Name
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(engine.breakTimer.name)
+                            .font(.system(size: 12, weight: .medium))
+                            .lineLimit(1)
 
-            Spacer()
+                        if engine.isPaused {
+                            Text("Paused")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.orange)
+                        }
+                    }
 
-            // Status
-            statusView
+                    Spacer()
+
+                    // Countdown — fixed width to prevent shifting
+                    statusView
+
+                    // Expand indicator
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundStyle(.quaternary)
+                        .rotationEffect(.degrees(isExpanded ? -180 : 0))
+                }
+                .padding(.horizontal, DesignTokens.spacingXS)
+                .padding(.vertical, 5)
+                .background(
+                    RoundedRectangle(cornerRadius: DesignTokens.cornerRadiusSM)
+                        .fill(isHovering ? Color.primary.opacity(0.04) : .clear)
+                )
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .onHover { isHovering = $0 }
+            .contextMenu { timerContextMenu }
+
+            // MARK: - Expanded Actions
+            if isExpanded {
+                timerActions
+                    .padding(.horizontal, DesignTokens.spacingSM)
+                    .padding(.top, 2)
+                    .padding(.bottom, 6)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
         }
-        .padding(.horizontal, DesignTokens.spacingXS)
-        .padding(.vertical, 5)
     }
+
+    // MARK: - Status (countdown)
 
     @ViewBuilder
     private var statusView: some View {
@@ -252,14 +333,16 @@ private struct TimerRow: View {
             Text(engine.countdownFormatted)
                 .font(.system(size: 13, weight: .light, design: .rounded))
                 .monospacedDigit()
+                .frame(minWidth: 52, alignment: .trailing)
+                .foregroundStyle(.primary)
                 .contentTransition(.numericText())
                 .animation(.linear(duration: 0.3), value: engine.secondsUntilBreak)
 
         case .onBreak:
             HStack(spacing: 4) {
-                Text("Break")
-                    .font(.caption2)
-                    .foregroundStyle(DesignTokens.primaryBlue)
+                Circle()
+                    .fill(DesignTokens.primaryBlue)
+                    .frame(width: 6, height: 6)
                 Text(engine.countdownFormatted)
                     .font(.system(size: 13, weight: .light, design: .rounded))
                     .monospacedDigit()
@@ -267,32 +350,153 @@ private struct TimerRow: View {
                     .contentTransition(.numericText())
                     .animation(.linear(duration: 0.3), value: engine.secondsRemainingInBreak)
             }
+            .frame(minWidth: 52, alignment: .trailing)
 
         case .paused(let until):
             if until != nil, let formatted = engine.pauseRemainingFormatted {
                 HStack(spacing: 4) {
                     Image(systemName: "pause.fill")
-                        .font(.caption2)
+                        .font(.system(size: 8))
                     Text(formatted)
                         .font(.system(size: 13, design: .rounded))
                         .monospacedDigit()
                 }
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.orange)
+                .frame(minWidth: 52, alignment: .trailing)
             } else {
                 HStack(spacing: 4) {
                     Image(systemName: "pause.fill")
-                        .font(.caption2)
+                        .font(.system(size: 8))
                     Text("Paused")
-                        .font(.caption)
+                        .font(.system(size: 11))
                 }
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.orange)
+                .frame(minWidth: 52, alignment: .trailing)
             }
 
         case .idle:
             Text("Idle")
-                .font(.caption)
+                .font(.system(size: 11))
                 .foregroundStyle(.tertiary)
+                .frame(minWidth: 52, alignment: .trailing)
         }
+    }
+
+    // MARK: - Expanded Action Buttons
+
+    @ViewBuilder
+    private var timerActions: some View {
+        HStack(spacing: 6) {
+            if engine.isCounting {
+                TimerActionButton("Skip Next", icon: "forward.end.fill") {
+                    engine.skipNextBreak()
+                }
+                TimerActionButton("Break Now", icon: "play.fill") {
+                    engine.takeBreakNow()
+                }
+                TimerActionButton("Pause", icon: "pause.fill") {
+                    engine.pause(minutes: nil)
+                }
+            } else if engine.isPaused {
+                TimerActionButton("Resume", icon: "play.fill") {
+                    engine.resume()
+                }
+            } else if engine.isOnBreak {
+                TimerActionButton("Skip", icon: "forward.end.fill") {
+                    engine.skipCurrentBreak()
+                }
+                if engine.canPostpone {
+                    TimerActionButton("+5 min", icon: "clock.arrow.circlepath") {
+                        engine.postponeBreak(minutes: 5)
+                    }
+                }
+            }
+
+            Spacer()
+
+            // Enable / disable — always visible
+            TimerActionButton(
+                engine.breakTimer.isEnabled ? "Disable" : "Enable",
+                icon: engine.breakTimer.isEnabled ? "xmark.circle" : "checkmark.circle",
+                tint: engine.breakTimer.isEnabled ? .secondary : DesignTokens.primaryBlue
+            ) {
+                toggleEnabled()
+            }
+        }
+    }
+
+    // MARK: - Context Menu
+
+    @ViewBuilder
+    private var timerContextMenu: some View {
+        if engine.isCounting {
+            Button("Skip Next Break") { engine.skipNextBreak() }
+            Button("Take a Break Now") { engine.takeBreakNow() }
+            Divider()
+            Button("Pause Indefinitely") { engine.pause(minutes: nil) }
+        } else if engine.isPaused {
+            Button("Resume") { engine.resume() }
+        } else if engine.isOnBreak {
+            Button("Skip This Break") { engine.skipCurrentBreak() }
+            if engine.canPostpone {
+                Button("Postpone 5 min") { engine.postponeBreak(minutes: 5) }
+            }
+        }
+        Divider()
+        Button(engine.breakTimer.isEnabled ? "Disable Timer" : "Enable Timer") {
+            toggleEnabled()
+        }
+    }
+
+    private func toggleEnabled() {
+        var updated = engine.breakTimer
+        updated.isEnabled.toggle()
+        settings.updateTimer(updated)
+        timerManager.syncEngines()
+    }
+}
+
+// MARK: - Timer Action Button
+
+/// A compact action button used inside expanded timer rows.
+private struct TimerActionButton: View {
+    let title: String
+    let icon: String
+    let tint: Color?
+    let action: () -> Void
+
+    @State private var isHovering = false
+
+    init(
+        _ title: String,
+        icon: String,
+        tint: Color? = nil,
+        action: @escaping () -> Void
+    ) {
+        self.title = title
+        self.icon = icon
+        self.tint = tint
+        self.action = action
+    }
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 3) {
+                Image(systemName: icon)
+                    .font(.system(size: 9))
+                Text(title)
+                    .font(.system(size: 10, weight: .medium))
+            }
+            .foregroundStyle(tint ?? .primary)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(isHovering ? Color.primary.opacity(0.1) : Color.primary.opacity(0.04))
+            )
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovering = $0 }
     }
 }
 

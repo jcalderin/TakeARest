@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Timers preferences tab — list/detail CRUD for all break timers.
 ///
-/// Left column: list of timers with name, status indicator, summary.
-/// Editing: sheet-based editor with full timer configuration.
+/// Left column: list of timers with name, status, enable toggle, summary.
+/// Editing: sheet-based editor with modern glass-card sections.
 struct TimersTab: View {
     @Bindable var settings: AppSettings
     var timerManager: TimerManager
@@ -19,22 +19,26 @@ struct TimersTab: View {
             } else {
                 List(selection: $selectedTimerID) {
                     ForEach(settings.timers) { timer in
-                        TimerListRow(timer: timer, engine: timerManager.engines[timer.id])
-                            .tag(timer.id)
-                            .contextMenu {
-                                Button("Edit...") { editingTimer = timer }
-                                Button("Duplicate") { duplicateTimer(timer) }
-                                Divider()
-                                Button(timer.isEnabled ? "Disable" : "Enable") {
-                                    toggleTimer(timer)
-                                }
-                                Divider()
-                                Button("Delete", role: .destructive) {
-                                    settings.removeTimer(id: timer.id)
-                                    timerManager.syncEngines()
-                                }
+                        TimerListRow(
+                            timer: timer,
+                            engine: timerManager.engines[timer.id],
+                            onToggle: { toggleTimer(timer) },
+                            onEdit: { editingTimer = timer }
+                        )
+                        .tag(timer.id)
+                        .contextMenu {
+                            Button("Edit...") { editingTimer = timer }
+                            Button("Duplicate") { duplicateTimer(timer) }
+                            Divider()
+                            Button(timer.isEnabled ? "Disable" : "Enable") {
+                                toggleTimer(timer)
                             }
-                            .onTapGesture(count: 2) { editingTimer = timer }
+                            Divider()
+                            Button("Delete", role: .destructive) {
+                                settings.removeTimer(id: timer.id)
+                                timerManager.syncEngines()
+                            }
+                        }
                     }
                     .onDelete { indexSet in
                         for index in indexSet {
@@ -57,7 +61,7 @@ struct TimersTab: View {
 
                 Button {
                     if let id = selectedTimerID,
-                       let timer = settings.timers.first(where: { $0.id == id }) {
+                       settings.timers.contains(where: { $0.id == id }) {
                         settings.removeTimer(id: id)
                         timerManager.syncEngines()
                     }
@@ -85,7 +89,7 @@ struct TimersTab: View {
                 Spacer()
 
                 if let id = selectedTimerID,
-                   settings.timers.first(where: { $0.id == id }) != nil {
+                   settings.timers.contains(where: { $0.id == id }) {
                     Button("Edit") {
                         editingTimer = settings.timers.first { $0.id == id }
                     }
@@ -184,48 +188,55 @@ struct TimersTab: View {
 private struct TimerListRow: View {
     let timer: BreakTimer
     let engine: TimerEngine?
+    let onToggle: () -> Void
+    let onEdit: () -> Void
 
     var body: some View {
         HStack(spacing: DesignTokens.spacingSM) {
-            // Color swatch
-            RoundedRectangle(cornerRadius: 4)
-                .fill(timer.overlayColor)
-                .frame(width: 6, height: 36)
+            // Content area — double-click opens editor
+            HStack(spacing: DesignTokens.spacingSM) {
+                // Color swatch
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(timer.isEnabled ? timer.overlayColor : timer.overlayColor.opacity(0.3))
+                    .frame(width: 6, height: 36)
 
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: DesignTokens.spacingXS) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(timer.name)
                         .fontWeight(.medium)
+                        .foregroundStyle(timer.isEnabled ? .primary : .secondary)
 
-                    if !timer.isEnabled {
-                        Text("Disabled")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(.quaternary, in: Capsule())
+                    Text("Every \(timer.intervalFormatted), \(timer.durationFormatted) break")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    HStack(spacing: 4) {
+                        Text(timer.daysDescription)
+                        Text("\u{00B7}")
+                        Text(timer.timeRangeDescription)
                     }
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
                 }
 
-                Text("Every \(timer.intervalFormatted), \(timer.durationFormatted) break")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                Spacer()
 
-                HStack(spacing: 4) {
-                    Text(timer.daysDescription)
-                    Text("·")
-                    Text(timer.timeRangeDescription)
+                // Live status from engine
+                if let engine {
+                    engineStatusBadge(engine)
                 }
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
             }
+            .contentShape(Rectangle())
+            .onTapGesture(count: 2) { onEdit() }
 
-            Spacer()
-
-            // Live status from engine
-            if let engine {
-                engineStatusBadge(engine)
-            }
+            // Enable / disable toggle — outside double-click area
+            Toggle("", isOn: Binding(
+                get: { timer.isEnabled },
+                set: { _ in onToggle() }
+            ))
+            .labelsHidden()
+            .toggleStyle(.switch)
+            .controlSize(.mini)
+            .tint(DesignTokens.primaryBlue)
         }
         .padding(.vertical, 4)
     }
@@ -237,6 +248,7 @@ private struct TimerListRow: View {
                 .font(.system(size: 12, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
+                .frame(minWidth: 44, alignment: .trailing)
         } else if engine.isOnBreak {
             Text("On Break")
                 .font(.caption2)
@@ -251,7 +263,7 @@ private struct TimerListRow: View {
     }
 }
 
-// MARK: - Timer Editor
+// MARK: - Timer Editor (Modern Glass Design)
 
 struct TimerEditor: View {
     @State var timer: BreakTimer
@@ -266,145 +278,372 @@ struct TimerEditor: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
+            // MARK: - Header
             HStack {
                 Text("Edit Timer")
-                    .font(.headline)
+                    .font(.system(size: 15, weight: .semibold))
                 Spacer()
                 Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 Button("Save") { onSave(timer) }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
+                    .tint(DesignTokens.primaryBlue)
             }
-            .padding()
+            .padding(.horizontal, DesignTokens.spacingMD)
+            .padding(.vertical, DesignTokens.spacingSM)
 
             Divider()
 
-            Form {
-                // MARK: - Identity
-                Section("Name") {
-                    TextField("Timer name", text: $timer.name)
-
-                    Toggle("Enabled", isOn: $timer.isEnabled)
+            // MARK: - Content
+            ScrollView {
+                VStack(spacing: DesignTokens.spacingSM) {
+                    nameSection
+                    timingSection
+                    scheduleSection
+                    appearanceSection
+                    behaviorSection
+                    previewSection
                 }
+                .padding(DesignTokens.spacingMD)
+            }
+        }
+        .frame(width: 540, height: 720)
+    }
 
-                // MARK: - Timing
-                Section("Break Timing") {
-                    HStack {
-                        Text("Break every")
-                        Spacer()
-                        Stepper(
-                            "\(timer.breakIntervalMinutes) min",
-                            value: $timer.breakIntervalMinutes,
-                            in: DesignTokens.minBreakIntervalMinutes...DesignTokens.maxBreakIntervalMinutes,
-                            step: 5
+    // MARK: - Name Section
+
+    private var nameSection: some View {
+        GlassSection("Name") {
+            SettingRow {
+                Text("Name")
+                Spacer()
+                TextField("Timer name", text: $timer.name)
+                    .textFieldStyle(.plain)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 200)
+            }
+
+            GlassDivider()
+
+            SettingRow {
+                Toggle("Enabled", isOn: $timer.isEnabled)
+                    .tint(DesignTokens.primaryBlue)
+            }
+        }
+    }
+
+    // MARK: - Timing Section
+
+    private var timingSection: some View {
+        GlassSection("Break Timing") {
+            SettingRow {
+                Text("Break every")
+                Spacer()
+                CompactNumberInput(
+                    value: $timer.breakIntervalMinutes,
+                    range: DesignTokens.minBreakIntervalMinutes...DesignTokens.maxBreakIntervalMinutes,
+                    step: 5,
+                    unit: "min"
+                )
+            }
+
+            GlassDivider()
+
+            SettingRow {
+                Text("Break lasts")
+                Spacer()
+                CompactNumberInput(
+                    value: $timer.breakDurationSeconds,
+                    range: DesignTokens.minBreakDurationSeconds...DesignTokens.maxBreakDurationSeconds,
+                    step: 10,
+                    unit: "sec"
+                )
+            }
+        }
+    }
+
+    // MARK: - Schedule Section
+
+    private var scheduleSection: some View {
+        GlassSection("Schedule") {
+            SettingRow {
+                HStack(spacing: DesignTokens.spacingXS) {
+                    ForEach(weekdays, id: \.0) { day, label in
+                        DayToggle(
+                            label: label,
+                            isActive: timer.activeDays.contains(day),
+                            onToggle: { toggleDay(day) }
                         )
                     }
-                    HStack {
-                        Text("Break lasts")
-                        Spacer()
-                        Stepper(
-                            "\(timer.breakDurationSeconds) sec",
-                            value: $timer.breakDurationSeconds,
-                            in: DesignTokens.minBreakDurationSeconds...DesignTokens.maxBreakDurationSeconds,
-                            step: 10
-                        )
-                    }
-                }
-
-                // MARK: - Schedule
-                Section("Schedule") {
-                    HStack(spacing: DesignTokens.spacingXS) {
-                        ForEach(weekdays, id: \.0) { day, label in
-                            DayToggle(
-                                label: label,
-                                isActive: timer.activeDays.contains(day),
-                                onToggle: { toggleDay(day) }
-                            )
-                        }
-                    }
-
-                    HStack {
-                        Text("Start")
-                        Spacer()
-                        TimePicker(hour: $timer.startHour, minute: $timer.startMinute)
-                    }
-                    HStack {
-                        Text("End")
-                        Spacer()
-                        TimePicker(hour: $timer.endHour, minute: $timer.endMinute)
-                    }
-                }
-
-                // MARK: - Appearance
-                Section("Appearance") {
-                    HStack {
-                        Text("Overlay Color")
-                        Spacer()
-                        ColorPicker(
-                            "",
-                            selection: Binding(
-                                get: { timer.overlayColor },
-                                set: { timer.overlayColorHex = $0.toHex() ?? "#000000" }
-                            ),
-                            supportsOpacity: false
-                        )
-                        .labelsHidden()
-                    }
-
-                    HStack {
-                        Text("Opacity")
-                        Spacer()
-                        Text("\(Int(timer.overlayOpacity * 100))%")
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                    }
-                    Slider(
-                        value: $timer.overlayOpacity,
-                        in: DesignTokens.overlayMinOpacity...DesignTokens.overlayMaxOpacity,
-                        step: 0.05
-                    )
-
-                    TextField("Break message", text: $timer.breakMessage)
-
-                    HStack {
-                        Text("Fade-in")
-                        Spacer()
-                        Text(String(format: "%.1fs", timer.dimAnimationDuration))
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
-                    }
-                    Slider(
-                        value: $timer.dimAnimationDuration,
-                        in: 1.0...DesignTokens.overlayDimDurationMax,
-                        step: 0.5
-                    )
-                }
-
-                // MARK: - Behavior
-                Section("Behavior") {
-                    Toggle("Show countdown during break", isOn: $timer.showCountdown)
-                    Toggle("Play sound when break starts", isOn: $timer.playSoundOnBreak)
-                }
-
-                // MARK: - Preview
-                Section("Preview") {
-                    TimerOverlayPreview(timer: timer)
-                        .frame(height: 100)
-                        .clipShape(RoundedRectangle(cornerRadius: DesignTokens.cornerRadiusSM))
                 }
             }
-            .formStyle(.grouped)
+
+            GlassDivider()
+
+            SettingRow {
+                Text("Start")
+                Spacer()
+                TimePicker(hour: $timer.startHour, minute: $timer.startMinute)
+            }
+
+            GlassDivider()
+
+            SettingRow {
+                Text("End")
+                Spacer()
+                TimePicker(hour: $timer.endHour, minute: $timer.endMinute)
+            }
         }
-        .frame(width: 480, height: 640)
     }
+
+    // MARK: - Appearance Section
+
+    private var appearanceSection: some View {
+        GlassSection("Appearance") {
+            SettingRow {
+                Text("Overlay Color")
+                Spacer()
+                ColorPicker(
+                    "",
+                    selection: Binding(
+                        get: { timer.overlayColor },
+                        set: { timer.overlayColorHex = $0.toHex() ?? "#000000" }
+                    ),
+                    supportsOpacity: false
+                )
+                .labelsHidden()
+            }
+
+            GlassDivider()
+
+            SettingRow {
+                Text("Opacity")
+                Spacer(minLength: DesignTokens.spacingSM)
+                Slider(
+                    value: $timer.overlayOpacity,
+                    in: DesignTokens.overlayMinOpacity...DesignTokens.overlayMaxOpacity,
+                    step: 0.05
+                )
+                .frame(maxWidth: 140)
+                CompactPercentInput(
+                    value: Binding(
+                        get: { Int(timer.overlayOpacity * 100) },
+                        set: {
+                            timer.overlayOpacity = (Double($0) / 100.0)
+                                .clamped(to: DesignTokens.overlayMinOpacity...DesignTokens.overlayMaxOpacity)
+                        }
+                    )
+                )
+            }
+
+            GlassDivider()
+
+            SettingRow {
+                Text("Message")
+                Spacer()
+                TextField("Break message", text: $timer.breakMessage)
+                    .textFieldStyle(.plain)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: 200)
+            }
+
+            GlassDivider()
+
+            SettingRow {
+                Text("Fade-in")
+                Spacer(minLength: DesignTokens.spacingSM)
+                Slider(
+                    value: $timer.dimAnimationDuration,
+                    in: 1.0...DesignTokens.overlayDimDurationMax,
+                    step: 0.5
+                )
+                .frame(maxWidth: 140)
+                CompactSecondsInput(value: $timer.dimAnimationDuration)
+            }
+        }
+    }
+
+    // MARK: - Behavior Section
+
+    private var behaviorSection: some View {
+        GlassSection("Behavior") {
+            SettingRow {
+                Toggle("Show countdown during break", isOn: $timer.showCountdown)
+                    .tint(DesignTokens.primaryBlue)
+            }
+
+            GlassDivider()
+
+            SettingRow {
+                Toggle("Play sound when break starts", isOn: $timer.playSoundOnBreak)
+                    .tint(DesignTokens.primaryBlue)
+            }
+        }
+    }
+
+    // MARK: - Preview Section
+
+    private var previewSection: some View {
+        GlassSection("Preview") {
+            TimerOverlayPreview(timer: timer)
+                .frame(height: 100)
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
+    // MARK: - Helpers
 
     private func toggleDay(_ day: Int) {
         if timer.activeDays.contains(day) {
             timer.activeDays.remove(day)
         } else {
             timer.activeDays.insert(day)
+        }
+    }
+}
+
+// MARK: - Glass Section Card
+
+/// A translucent glass-material section card for the modern editor layout.
+private struct GlassSection<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
+
+    init(_ title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+                .padding(.leading, 4)
+
+            VStack(spacing: 0) {
+                content
+            }
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(.separator, lineWidth: 0.5)
+            )
+        }
+    }
+}
+
+/// A single row inside a glass section.
+private struct SettingRow<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        HStack {
+            content
+        }
+        .font(.system(size: 13))
+        .padding(.horizontal, DesignTokens.spacingSM)
+        .padding(.vertical, 8)
+    }
+}
+
+/// An iOS-style inset divider for glass sections.
+private struct GlassDivider: View {
+    var body: some View {
+        Divider()
+            .padding(.leading, DesignTokens.spacingSM)
+    }
+}
+
+// MARK: - Compact Number Input
+
+/// TextField + Stepper in a compact inline layout, vertically centered.
+private struct CompactNumberInput: View {
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    let step: Int
+    let unit: String
+
+    var body: some View {
+        HStack(spacing: 4) {
+            TextField("", value: $value, format: .number)
+                .textFieldStyle(.plain)
+                .frame(width: 38)
+                .multilineTextAlignment(.trailing)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(Color.primary.opacity(0.05))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                )
+
+            Stepper("", value: $value, in: range, step: step)
+                .labelsHidden()
+
+            Text(unit)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .frame(width: 26, alignment: .leading)
+        }
+    }
+}
+
+/// A compact percent input (integer) for opacity.
+private struct CompactPercentInput: View {
+    @Binding var value: Int
+
+    var body: some View {
+        HStack(spacing: 3) {
+            TextField("", value: $value, format: .number)
+                .textFieldStyle(.plain)
+                .frame(width: 30)
+                .multilineTextAlignment(.trailing)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 3)
+                .background(
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(Color.primary.opacity(0.05))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                )
+            Text("%")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+/// A compact seconds input (one decimal) for fade-in duration.
+private struct CompactSecondsInput: View {
+    @Binding var value: Double
+
+    var body: some View {
+        HStack(spacing: 3) {
+            TextField("", value: $value, format: .number.precision(.fractionLength(1)))
+                .textFieldStyle(.plain)
+                .frame(width: 34)
+                .multilineTextAlignment(.trailing)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 3)
+                .background(
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(Color.primary.opacity(0.05))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 5)
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+                )
+            Text("s")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -419,16 +658,22 @@ struct DayToggle: View {
     var body: some View {
         Button(action: onToggle) {
             Text(label)
-                .font(.caption)
-                .fontWeight(isActive ? .semibold : .regular)
-                .frame(width: 36, height: 28)
+                .font(.system(size: 11, weight: isActive ? .semibold : .regular))
+                .frame(width: 36, height: 26)
                 .background(
-                    isActive ? DesignTokens.primaryBlue.opacity(0.2) : Color.clear,
+                    isActive
+                        ? DesignTokens.primaryBlue.opacity(0.15)
+                        : Color.primary.opacity(0.03),
                     in: RoundedRectangle(cornerRadius: 6)
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 6)
-                        .stroke(isActive ? DesignTokens.primaryBlue : Color.secondary.opacity(0.3), lineWidth: 1)
+                        .strokeBorder(
+                            isActive
+                                ? DesignTokens.primaryBlue.opacity(0.4)
+                                : Color.primary.opacity(0.08),
+                            lineWidth: 0.5
+                        )
                 )
         }
         .buttonStyle(.plain)
@@ -456,7 +701,7 @@ struct TimePicker: View {
                 .foregroundStyle(.secondary)
 
             Picker("", selection: $minute) {
-                ForEach([0, 15, 30, 45], id: \.self) { m in
+                ForEach(0..<60, id: \.self) { m in
                     Text(String(format: "%02d", m)).tag(m)
                 }
             }
