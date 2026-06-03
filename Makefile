@@ -6,9 +6,13 @@ LAUNCHER := $(HOME)/.local/bin/respite
 .PHONY: build install launcher run uninstall test clean
 
 ## build the Release .app
+# Ad-hoc sign (CODE_SIGN_IDENTITY=-) so the App Sandbox entitlement is embedded.
+# Without signing, the app runs unsandboxed and can't see its saved timers,
+# which live in the sandbox container (~/Library/Containers/com.cholas.Respite).
 build:
 	xcodebuild -project $(APP).xcodeproj -scheme $(APP) -configuration Release \
-		-derivedDataPath $(BUILD) build CODE_SIGNING_ALLOWED=NO
+		-derivedDataPath $(BUILD) build \
+		CODE_SIGN_IDENTITY="-" CODE_SIGN_STYLE=Manual CODE_SIGNING_REQUIRED=YES
 
 ## build, copy to /Applications, add `respite` launcher
 install: build launcher
