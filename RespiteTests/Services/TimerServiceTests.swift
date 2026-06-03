@@ -346,6 +346,101 @@ struct TimerEngineTests {
         #expect(engine.isCounting)
     }
 
+    // MARK: - Clock Anchor & Skip-Once
+
+    private func makeAnchoredSUT(
+        intervalMinutes: Int, anchorMinute: Int, now: Date
+    ) -> (TimerEngine, CurrentDateHolder) {
+        var timer = BreakTimer(
+            id: UUID(), name: "Anchored", isEnabled: true,
+            breakIntervalMinutes: intervalMinutes, breakDurationSeconds: 20,
+            overlayColorHex: "#000000", overlayOpacity: 0.85, breakMessage: "x",
+            dimAnimationDuration: 5.0, showCountdown: true, playSoundOnBreak: false,
+            activeDays: [1, 2, 3, 4, 5, 6, 7], startHour: 0, startMinute: 0,
+            endHour: 23, endMinute: 59
+        )
+        timer.anchorToClock = true
+        timer.anchorMinute = anchorMinute
+        let holder = CurrentDateHolder(now)
+        let engine = TimerEngine(breakTimer: timer, dateProvider: { holder.now })
+        return (engine, holder)
+    }
+
+    private func dateAt(_ hour: Int, _ minute: Int) -> Date {
+        Calendar.current.date(
+            bySettingHour: hour, minute: minute, second: 0,
+            of: Date(timeIntervalSinceReferenceDate: 0)
+        )!
+    }
+
+    @Test("Anchored timer fires at the next clock slot")
+    func anchoredNextSlot() {
+        let (engine, _) = makeAnchoredSUT(intervalMinutes: 20, anchorMinute: 0, now: dateAt(10, 15))
+        engine.start()
+        #expect(engine.nextBreakDate == dateAt(10, 20))
+    }
+
+    @Test("Anchored interval that doesn't divide 60 still steps on grid")
+    func anchoredNonDivisorInterval() {
+        // 25-min interval, anchor 0 → slots :00, :25, :50, …
+        let (engine, _) = makeAnchoredSUT(intervalMinutes: 25, anchorMinute: 0, now: dateAt(0, 10))
+        engine.start()
+        #expect(engine.nextBreakDate == dateAt(0, 25))
+    }
+
+    @Test("Skip-once on an anchored timer advances to the next grid slot")
+    func skipOnceAnchoredKeepsGrid() {
+        let (engine, holder) = makeAnchoredSUT(intervalMinutes: 20, anchorMinute: 0, now: dateAt(9, 59))
+        engine.start()
+        #expect(engine.nextBreakDate == dateAt(10, 0))
+
+        holder.now = dateAt(10, 0)
+        engine.skipScheduledOccurrence()
+        #expect(engine.nextBreakDate == dateAt(10, 20))
+    }
+
+    @Test("Skip-once on a non-anchored timer keeps phase, not now")
+    func skipOnceNonAnchoredKeepsPhase() {
+        let start = Date(timeIntervalSinceReferenceDate: 1000)
+        let (engine, holder) = makeSUT(intervalMinutes: 20, now: start)
+        engine.start()
+        let scheduled = engine.nextBreakDate!     // start + 20 min
+
+        // Suppression happens slightly after the scheduled fire.
+        holder.now = scheduled.addingTimeInterval(5)
+        engine.skipScheduledOccurrence()
+
+        // Advances from the scheduled occurrence (+20 min), ignoring `now`.
+        #expect(engine.nextBreakDate == scheduled.addingTimeInterval(20 * 60))
+        #expect(engine.isCounting)
+    }
+
+    @Test("Skip-once fires no callbacks")
+    func skipOnceFiresNoCallbacks() {
+        let (engine, _) = makeSUT()
+        engine.start()
+        var started = false
+        var ended = false
+        engine.onBreakStarted = { _ in started = true }
+        engine.onBreakEnded = { _ in ended = true }
+
+        engine.skipScheduledOccurrence()
+        #expect(!started)
+        #expect(!ended)
+    }
+
+    @Test("Anchored timer snaps to next slot after waking past a slot")
+    func anchoredWakeSnapsToGrid() {
+        let (engine, holder) = makeAnchoredSUT(intervalMinutes: 20, anchorMinute: 0, now: dateAt(9, 50))
+        engine.start()
+        #expect(engine.nextBreakDate == dateAt(10, 0))
+
+        // Slept through 10:00 and 10:20, woke at 10:35.
+        holder.now = dateAt(10, 35)
+        engine.handleSystemWake()
+        #expect(engine.nextBreakDate == dateAt(10, 40))
+    }
+
     // MARK: - Countdown Formatting
 
     @Test("Countdown formatted string is correct")
@@ -381,5 +476,70 @@ final class CurrentDateHolder {
 
     init(_ date: Date) {
         self.now = date
+    }
+}
+
+// MARK: - TimerManager Coverage
+
+/// Tests the "covered by" supersede behavior in TimerManager.
+@Suite("TimerManager coverage")
+@MainActor
+struct TimerManagerCoverageTests {
+
+    private func makeTimer(
+        name: String, interval: Int, enabled: Bool = true, coveredBy: Set<UUID> = []
+    ) -> BreakTimer {
+        var timer = BreakTimer(
+            id: UUID(), name: name, isEnabled: enabled,
+            breakIntervalMinutes: interval, breakDurationSeconds: 20,
+            overlayColorHex: "#000000", overlayOpacity: 0.85, breakMessage: "x",
+            dimAnimationDuration: 5.0, showCountdown: true, playSoundOnBreak: false,
+            activeDays: [1, 2, 3, 4, 5, 6, 7], startHour: 0, startMinute: 0,
+            endHour: 23, endMinute: 59
+        )
+        timer.coveredByTimerIDs = coveredBy
+        return timer
+    }
+
+    private func makeManager(_ timers: [BreakTimer]) -> (TimerManager, [UUID]) {
+        let defaults = UserDefaults(suiteName: "test-\(UUID().uuidString)")!
+        let settings = AppSettings(defaults: defaults)
+        settings.timers = timers
+        let manager = TimerManager(settings: settings)
+        manager.syncEngines()
+        return (manager, timers.map(\.id))
+    }
+
+    @Test("Covered break is suppressed while the covering timer is on break")
+    func suppressedWhileCoveringOnBreak() {
+        let covering = makeTimer(name: "Stand", interval: 60)
+        let covered = makeTimer(name: "Look", interval: 20, coveredBy: [covering.id])
+        let (manager, _) = makeManager([covering, covered])
+
+        var shown: [UUID] = []
+        manager.onBreakStarted = { timer, _ in shown.append(timer.id) }
+
+        manager.engines[covering.id]!.takeBreakNow()   // covering fires first
+        manager.engines[covered.id]!.takeBreakNow()    // covered coincides
+
+        #expect(shown == [covering.id])                // only the covering break shows
+        #expect(manager.activeBreak?.id == covering.id)
+        #expect(manager.engines[covered.id]!.isCounting) // covered skipped → counting
+    }
+
+    @Test("No suppression when the covering timer is idle")
+    func noSuppressionWhenCoveringIdle() {
+        // Covering disabled → its engine stays idle, so it can't suppress.
+        let covering = makeTimer(name: "Stand", interval: 60, enabled: false)
+        let covered = makeTimer(name: "Look", interval: 20, coveredBy: [covering.id])
+        let (manager, _) = makeManager([covering, covered])
+
+        var shown: [UUID] = []
+        manager.onBreakStarted = { timer, _ in shown.append(timer.id) }
+
+        manager.engines[covered.id]!.takeBreakNow()
+
+        #expect(shown == [covered.id])                 // covered shows normally
+        #expect(manager.activeBreak?.id == covered.id)
     }
 }

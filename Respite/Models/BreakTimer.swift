@@ -70,6 +70,22 @@ struct BreakTimer: Identifiable, Codable, Equatable, Sendable {
     /// End minute of the active window (0–59)
     var endMinute: Int
 
+    // MARK: - Coordination
+
+    /// IDs of other timers that "cover" this one. When a covering timer's break
+    /// runs, this timer skips its coincident break that one time and keeps its
+    /// own schedule. Empty by default.
+    var coveredByTimerIDs: Set<UUID> = []
+
+    /// When true, breaks fire on wall-clock boundaries (e.g. :00 / :20 / :40)
+    /// aligned to `anchorMinute`, instead of counting from when the timer
+    /// started. Off by default (behaves as a plain interval-from-now timer).
+    var anchorToClock: Bool = false
+
+    /// Minute-of-the-hour the clock grid is anchored to (0–59). Only meaningful
+    /// when `anchorToClock` is true. Default 0 (top of the hour).
+    var anchorMinute: Int = 0
+
     // MARK: - Computed: Schedule
 
     /// Start time as total minutes since midnight.
@@ -193,6 +209,8 @@ struct BreakTimer: Identifiable, Codable, Equatable, Sendable {
         copy.endHour = copy.endHour.clamped(to: 0...23)
         copy.endMinute = copy.endMinute.clamped(to: 0...59)
         copy.activeDays = copy.activeDays.filter { (1...7).contains($0) }
+        copy.anchorMinute = copy.anchorMinute.clamped(to: 0...59)
+        copy.coveredByTimerIDs.remove(copy.id) // a timer can't cover itself
         return copy
     }
 
@@ -242,6 +260,51 @@ struct BreakTimer: Identifiable, Codable, Equatable, Sendable {
             endHour: 18,
             endMinute: 0
         )
+    }
+}
+
+// MARK: - Backward-Compatible Codable
+//
+// Declared in an extension so the synthesized memberwise initializer is
+// preserved (factory presets, AppSettings migration, and tests all use it).
+//
+// `init(from:)` decodes the original fields normally and the coordination
+// fields with `decodeIfPresent ?? default`, so timers saved before those
+// fields existed (the data in `breakTimers_v2`) decode without throwing.
+extension BreakTimer {
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, isEnabled
+        case breakIntervalMinutes, breakDurationSeconds
+        case overlayColorHex, overlayOpacity, breakMessage, dimAnimationDuration
+        case showCountdown, playSoundOnBreak
+        case activeDays, startHour, startMinute, endHour, endMinute
+        case coveredByTimerIDs, anchorToClock, anchorMinute
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        isEnabled = try c.decode(Bool.self, forKey: .isEnabled)
+        breakIntervalMinutes = try c.decode(Int.self, forKey: .breakIntervalMinutes)
+        breakDurationSeconds = try c.decode(Int.self, forKey: .breakDurationSeconds)
+        overlayColorHex = try c.decode(String.self, forKey: .overlayColorHex)
+        overlayOpacity = try c.decode(Double.self, forKey: .overlayOpacity)
+        breakMessage = try c.decode(String.self, forKey: .breakMessage)
+        dimAnimationDuration = try c.decode(Double.self, forKey: .dimAnimationDuration)
+        showCountdown = try c.decode(Bool.self, forKey: .showCountdown)
+        playSoundOnBreak = try c.decode(Bool.self, forKey: .playSoundOnBreak)
+        activeDays = try c.decode(Set<Int>.self, forKey: .activeDays)
+        startHour = try c.decode(Int.self, forKey: .startHour)
+        startMinute = try c.decode(Int.self, forKey: .startMinute)
+        endHour = try c.decode(Int.self, forKey: .endHour)
+        endMinute = try c.decode(Int.self, forKey: .endMinute)
+
+        // Coordination fields — absent in pre-coordination saved data.
+        coveredByTimerIDs = try c.decodeIfPresent(Set<UUID>.self, forKey: .coveredByTimerIDs) ?? []
+        anchorToClock = try c.decodeIfPresent(Bool.self, forKey: .anchorToClock) ?? false
+        anchorMinute = try c.decodeIfPresent(Int.self, forKey: .anchorMinute) ?? 0
     }
 }
 

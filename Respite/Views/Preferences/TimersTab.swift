@@ -101,7 +101,7 @@ struct TimersTab: View {
             .padding(.vertical, DesignTokens.spacingXS)
         }
         .sheet(item: $editingTimer) { timer in
-            TimerEditor(timer: timer) { updated in
+            TimerEditor(timer: timer, allTimers: settings.timers) { updated in
                 settings.updateTimer(updated)
                 timerManager.syncEngines()
                 editingTimer = nil
@@ -205,9 +205,21 @@ private struct TimerListRow: View {
                         .fontWeight(.medium)
                         .foregroundStyle(timer.isEnabled ? .primary : .secondary)
 
-                    Text("Every \(timer.intervalFormatted), \(timer.durationFormatted) break")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        Text("Every \(timer.intervalFormatted), \(timer.durationFormatted) break")
+                            .foregroundStyle(.secondary)
+                        if timer.anchorToClock {
+                            Image(systemName: "clock")
+                                .foregroundStyle(.tertiary)
+                                .help("Aligned to the clock at :\(String(format: "%02d", timer.anchorMinute))")
+                        }
+                        if !timer.coveredByTimerIDs.isEmpty {
+                            Image(systemName: "rectangle.on.rectangle.slash")
+                                .foregroundStyle(.tertiary)
+                                .help("Covered by \(timer.coveredByTimerIDs.count) timer(s) — skips coincident breaks")
+                        }
+                    }
+                    .font(.caption)
 
                     HStack(spacing: 4) {
                         Text(timer.daysDescription)
@@ -267,6 +279,8 @@ private struct TimerListRow: View {
 
 struct TimerEditor: View {
     @State var timer: BreakTimer
+    /// All timers, used to populate the "Covered by" picker. Excludes self.
+    var allTimers: [BreakTimer] = []
     var onSave: (BreakTimer) -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -301,6 +315,7 @@ struct TimerEditor: View {
                     nameSection
                     timingSection
                     scheduleSection
+                    coordinationSection
                     appearanceSection
                     behaviorSection
                     previewSection
@@ -360,6 +375,55 @@ struct TimerEditor: View {
                     unit: "sec"
                 )
             }
+
+            GlassDivider()
+
+            SettingRow {
+                Toggle("Align to clock", isOn: Binding(
+                    get: { timer.anchorToClock },
+                    set: { newValue in
+                        withAnimation(.easeInOut(duration: 0.2)) { timer.anchorToClock = newValue }
+                    }
+                ))
+                .tint(DesignTokens.primaryBlue)
+            }
+
+            if timer.anchorToClock {
+                GlassDivider()
+
+                SettingRow {
+                    Text("Anchor at")
+                    Spacer()
+                    CompactNumberInput(
+                        value: $timer.anchorMinute,
+                        range: 0...59,
+                        step: 5,
+                        unit: "min"
+                    )
+                }
+
+                SectionCaption("Fires on the clock, e.g. :00 / :20 / :40, instead of counting from when it started.")
+            }
+        }
+        .transition(.opacity)
+    }
+
+    // MARK: - Coordination Section
+
+    private var coordinationSection: some View {
+        let candidates = allTimers.filter { $0.id != timer.id }
+
+        return GlassSection("Coordination") {
+            SettingRow {
+                Text("Covered by")
+                Spacer()
+                CoverageMenu(
+                    selection: $timer.coveredByTimerIDs,
+                    candidates: candidates
+                )
+            }
+
+            SectionCaption("When a covering timer's break runs, this timer skips its coincident break that one time.")
         }
     }
 
@@ -554,6 +618,70 @@ private struct GlassDivider: View {
     var body: some View {
         Divider()
             .padding(.leading, DesignTokens.spacingSM)
+    }
+}
+
+/// A one-line hint beneath a section's rows, left-aligned to the row labels.
+private struct SectionCaption: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        HStack {
+            Text(text)
+                .respiteCaption()
+                .multilineTextAlignment(.leading)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, DesignTokens.spacingSM)
+        .padding(.bottom, 8)
+    }
+}
+
+/// Popup menu for choosing which other timers cover this one. The trigger
+/// summarizes the selection; each item toggles membership with a checkmark.
+private struct CoverageMenu: View {
+    @Binding var selection: Set<UUID>
+    let candidates: [BreakTimer]
+
+    var body: some View {
+        if candidates.isEmpty {
+            Text("No other timers")
+                .font(.system(size: 13))
+                .foregroundStyle(.tertiary)
+                .help("Add another timer to use coverage.")
+        } else {
+            Menu {
+                ForEach(candidates) { candidate in
+                    Toggle(candidate.name, isOn: Binding(
+                        get: { selection.contains(candidate.id) },
+                        set: { isOn in
+                            if isOn { selection.insert(candidate.id) }
+                            else { selection.remove(candidate.id) }
+                        }
+                    ))
+                }
+            } label: {
+                Text(summaryLabel)
+                    .font(.system(size: 13))
+                    .foregroundStyle(selection.isEmpty ? .secondary : .primary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: 200, alignment: .trailing)
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// "None" / single name / "Name +N" — kept to one line within the trigger.
+    private var summaryLabel: String {
+        let names = candidates.filter { selection.contains($0.id) }.map(\.name)
+        switch names.count {
+        case 0: return "None"
+        case 1: return names[0]
+        default: return "\(names[0]) +\(names.count - 1)"
+        }
     }
 }
 

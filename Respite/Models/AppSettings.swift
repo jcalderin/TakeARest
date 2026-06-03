@@ -50,9 +50,13 @@ final class AppSettings {
         }
     }
 
-    /// Remove a timer by ID.
+    /// Remove a timer by ID, and drop any coverage references to it.
     func removeTimer(id: UUID) {
-        timers.removeAll { $0.id == id }
+        var updated = timers.filter { $0.id != id }
+        for index in updated.indices {
+            updated[index].coveredByTimerIDs.remove(id)
+        }
+        timers = updated
     }
 
     // MARK: - Private: Persistence

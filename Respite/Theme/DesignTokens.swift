@@ -121,4 +121,13 @@ enum DesignTokens {
 
     /// Maximum break duration in seconds
     static let maxBreakDurationSeconds = 300
+
+    // MARK: - Timer Coordination
+
+    /// How close two breaks must fire to be treated as coincident, so a
+    /// "covered" timer's break is suppressed by its covering timer. Generous
+    /// enough to absorb per-engine tick jitter and the wake grace period, yet
+    /// far below the 5-minute minimum interval so it can't suppress a genuinely
+    /// later occurrence.
+    static let coverageCoincidenceWindow: TimeInterval = 90
 }

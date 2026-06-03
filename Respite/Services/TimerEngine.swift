@@ -218,12 +218,55 @@ final class TimerEngine: Identifiable {
     // MARK: - Private: Scheduling
 
     private func scheduleNextBreak() {
-        let now = dateProvider()
-        let interval = TimeInterval(breakTimer.breakIntervalMinutes * 60)
-        nextBreakDate = now.addingTimeInterval(interval)
+        nextBreakDate = nextFireDate(after: dateProvider())
         state = .counting
         postponeCount = 0
         startTicking()
+    }
+
+    /// Skip the currently-scheduled break once, keeping the schedule/grid.
+    ///
+    /// Unlike `skipNextBreak()` (which resets a full interval from *now*), this
+    /// advances from the *existing* occurrence — to the next grid slot when
+    /// clock-anchored, else one interval past the current `nextBreakDate`. Used
+    /// when a covering timer supersedes this one's coincident break, so the
+    /// covered timer stays on its original cadence. Fires no callbacks and does
+    /// not touch `postponeCount`. Tolerates being called while `.counting` or
+    /// already `.onBreak` (depending on tick ordering).
+    func skipScheduledOccurrence() {
+        let base = nextBreakDate ?? dateProvider()
+        nextBreakDate = nextFireDate(after: base, anchorReference: base)
+        secondsRemainingInBreak = 0
+        state = .counting
+        startTicking()
+    }
+
+    /// The next time this timer should fire after `date`.
+    /// Anchored timers snap to the wall-clock grid; others count a full interval.
+    ///
+    /// - Parameter anchorReference: when anchored, the date the grid slot must be
+    ///   strictly after. Defaults to `date`. (Skip-once passes the prior slot so
+    ///   it advances to the *next* slot rather than recomputing from now.)
+    private func nextFireDate(after date: Date, anchorReference: Date? = nil) -> Date {
+        if breakTimer.anchorToClock {
+            return nextAnchoredSlot(after: anchorReference ?? date)
+        }
+        return date.addingTimeInterval(TimeInterval(breakTimer.breakIntervalMinutes * 60))
+    }
+
+    /// The next wall-clock grid slot strictly after `date`.
+    ///
+    /// The grid is `anchorMinute` past midnight, stepping by the break interval.
+    /// Computed with `Calendar` (not raw seconds) so it stays correct across DST
+    /// and day boundaries even when the interval doesn't divide 60.
+    private func nextAnchoredSlot(after date: Date, calendar: Calendar = .current) -> Date {
+        let interval = TimeInterval(breakTimer.breakIntervalMinutes * 60)
+        let gridOrigin = calendar.startOfDay(for: date)
+            .addingTimeInterval(TimeInterval(breakTimer.anchorMinute * 60))
+        let steps = (date.timeIntervalSince(gridOrigin) / interval).rounded(.down) + 1
+        var slot = gridOrigin.addingTimeInterval(steps * interval)
+        while slot <= date { slot = slot.addingTimeInterval(interval) }
+        return slot
     }
 
     private func startBreak() {
@@ -334,9 +377,12 @@ final class TimerEngine: Identifiable {
         switch state {
         case .counting:
             guard let breakDate = nextBreakDate else { return }
-            // If we slept past the break, fire after a short grace period.
+            // If we slept past the break: anchored timers snap to the next grid
+            // slot (staying wall-clock honest); others fire after a short grace.
             if now >= breakDate {
-                nextBreakDate = now.addingTimeInterval(Self.wakeGracePeriod)
+                nextBreakDate = breakTimer.anchorToClock
+                    ? nextAnchoredSlot(after: now)
+                    : now.addingTimeInterval(Self.wakeGracePeriod)
             }
             startTicking()
 

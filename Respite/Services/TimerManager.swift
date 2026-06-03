@@ -155,6 +155,13 @@ final class TimerManager {
     }
 
     private func handleBreakStarted(from engine: TimerEngine, timer: BreakTimer) {
+        // Supersede: if a timer that covers this one is firing coincidentally,
+        // skip this break once (keep its schedule) — don't show or queue it.
+        if isSuperseded(timer, now: dateProvider()) {
+            engine.skipScheduledOccurrence()
+            return
+        }
+
         if activeBreak != nil {
             // Already showing a break — queue this one
             breakQueue.append((engine: engine, timer: timer))
@@ -166,6 +173,27 @@ final class TimerManager {
         }
     }
 
+    /// Whether `timer`'s just-started break should be suppressed because a timer
+    /// that covers it is firing coincidentally.
+    ///
+    /// Handles both tick orderings (each engine has an independent 1s timer):
+    /// the covering timer may already be on break (it fired first), or still
+    /// counting but due within the coincidence window (it fires momentarily).
+    /// A missing or idle covering engine (deleted, disabled, out of schedule)
+    /// is not coincident, so it never suppresses.
+    private func isSuperseded(_ timer: BreakTimer, now: Date) -> Bool {
+        guard !timer.coveredByTimerIDs.isEmpty else { return false }
+        for coveringID in timer.coveredByTimerIDs {
+            guard let covering = engines[coveringID] else { continue }
+            if covering.isOnBreak { return true }
+            if covering.isCounting, let due = covering.nextBreakDate,
+               abs(due.timeIntervalSince(now)) <= DesignTokens.coverageCoincidenceWindow {
+                return true
+            }
+        }
+        return false
+    }
+
     private func handleBreakEnded(from engine: TimerEngine, timer: BreakTimer) {
         // If this was the active break, dismiss and check queue
         if activeBreak?.id == timer.id {
@@ -173,16 +201,20 @@ final class TimerManager {
             activeBreakEngine = nil
             onBreakEnded?()
 
-            // Show next queued break if any
-            if let next = breakQueue.first {
+            // Show the next still-valid queued break. A queued break may have
+            // ended naturally (now counting) or become superseded while waiting
+            // (a covering timer started) — skip those and keep draining.
+            while let next = breakQueue.first {
                 breakQueue.removeFirst()
-                // The engine may have already moved to counting if the break ended naturally.
-                // Only show if it's still on break.
-                if next.engine.isOnBreak {
-                    activeBreak = next.timer
-                    activeBreakEngine = next.engine
-                    onBreakStarted?(next.timer, next.engine)
+                guard next.engine.isOnBreak else { continue }
+                if isSuperseded(next.timer, now: dateProvider()) {
+                    next.engine.skipScheduledOccurrence()
+                    continue
                 }
+                activeBreak = next.timer
+                activeBreakEngine = next.engine
+                onBreakStarted?(next.timer, next.engine)
+                break
             }
         }
     }
