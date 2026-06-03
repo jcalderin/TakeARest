@@ -559,6 +559,39 @@ private struct GlassDivider: View {
 
 // MARK: - Compact Number Input
 
+private extension View {
+    /// Shared styling for the compact inline text fields in this tab.
+    func compactInputField(width: CGFloat, hPadding: CGFloat = 5) -> some View {
+        self
+            .textFieldStyle(.plain)
+            .frame(width: width)
+            .multilineTextAlignment(.trailing)
+            .padding(.horizontal, hPadding)
+            .padding(.vertical, 3)
+            .background(
+                RoundedRectangle(cornerRadius: 5)
+                    .fill(Color.primary.opacity(0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 5)
+                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
+            )
+    }
+}
+
+/// A compact inline unit label ("%", "s", "min", …).
+private struct UnitLabel: View {
+    let text: String
+    var width: CGFloat?
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 12))
+            .foregroundStyle(.secondary)
+            .frame(width: width, alignment: .leading)
+    }
+}
+
 /// TextField + Stepper in a compact inline layout, vertically centered.
 private struct CompactNumberInput: View {
     @Binding var value: Int
@@ -569,27 +602,12 @@ private struct CompactNumberInput: View {
     var body: some View {
         HStack(spacing: 4) {
             TextField("", value: $value, format: .number)
-                .textFieldStyle(.plain)
-                .frame(width: 38)
-                .multilineTextAlignment(.trailing)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 3)
-                .background(
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(Color.primary.opacity(0.05))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 5)
-                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
-                )
+                .compactInputField(width: 38, hPadding: 6)
 
             Stepper("", value: $value, in: range, step: step)
                 .labelsHidden()
 
-            Text(unit)
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-                .frame(width: 26, alignment: .leading)
+            UnitLabel(text: unit, width: 26)
         }
     }
 }
@@ -601,22 +619,8 @@ private struct CompactPercentInput: View {
     var body: some View {
         HStack(spacing: 3) {
             TextField("", value: $value, format: .number)
-                .textFieldStyle(.plain)
-                .frame(width: 30)
-                .multilineTextAlignment(.trailing)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 3)
-                .background(
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(Color.primary.opacity(0.05))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 5)
-                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
-                )
-            Text("%")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .compactInputField(width: 30)
+            UnitLabel(text: "%")
         }
     }
 }
@@ -628,22 +632,8 @@ private struct CompactSecondsInput: View {
     var body: some View {
         HStack(spacing: 3) {
             TextField("", value: $value, format: .number.precision(.fractionLength(1)))
-                .textFieldStyle(.plain)
-                .frame(width: 34)
-                .multilineTextAlignment(.trailing)
-                .padding(.horizontal, 5)
-                .padding(.vertical, 3)
-                .background(
-                    RoundedRectangle(cornerRadius: 5)
-                        .fill(Color.primary.opacity(0.05))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 5)
-                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5)
-                )
-            Text("s")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+                .compactInputField(width: 34)
+            UnitLabel(text: "s")
         }
     }
 }
