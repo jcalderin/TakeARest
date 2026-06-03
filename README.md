@@ -1,32 +1,36 @@
 # Respite
 
-A native macOS menubar app that reminds you to take breaks.
+A native macOS menu-bar app that reminds you to take breaks. No Dock icon, full-screen break overlays across all displays, multiple schedules, launch at login.
 
-## Features
+Requires macOS 15+ and Xcode 16+.
 
-- Lives in the menubar — no Dock icon, no clutter
-- Full-screen overlay with configurable colors, messages, and animations
-- Multiple schedules (weekday, weekend, custom)
-- Pause breaks when you need uninterrupted focus
-- Launch at login
-- Covers all connected displays
-- Lightweight and native — built with Swift and SwiftUI
-
-## Requirements
-
-- macOS 15.0 (Sequoia) or later
-- Xcode 16+ to build from source
-
-## Building
+## Install
 
 ```bash
-git clone https://github.com/cholas/Respite.git
-cd Respite
-open Respite.xcodeproj
+make install   # build Release, copy to /Applications, add `respite` launcher
+respite         # start it (launcher lives in ~/.local/bin)
 ```
 
-Build and run with `Cmd+R` in Xcode.
+Then enable startup: **menu-bar icon → Preferences → General → Launch at login**.
+(Toggle it off/on after each reinstall so the login item points at the new build.)
+
+## Commands
+
+| Command          | Does                                      |
+|------------------|-------------------------------------------|
+| `make install`   | Build + install to /Applications + launcher |
+| `make build`     | Build the Release `.app` only             |
+| `make run`       | Launch the installed app                  |
+| `make test`      | Run the test suite                        |
+| `make uninstall` | Remove app and launcher                   |
+| `make clean`     | Delete build artifacts                    |
+
+## Develop
+
+Open `Respite.xcodeproj` and run with `Cmd+R`. Note: apps launched from Xcode
+live in DerivedData, which gets wiped periodically — use `make install` for the
+copy you actually run day to day.
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+MIT. See [LICENSE](LICENSE).
