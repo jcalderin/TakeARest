@@ -77,14 +77,11 @@ struct BreakTimer: Identifiable, Codable, Equatable, Sendable {
     /// own schedule. Empty by default.
     var coveredByTimerIDs: Set<UUID> = []
 
-    /// When true, breaks fire on wall-clock boundaries (e.g. :00 / :20 / :40)
-    /// aligned to `anchorMinute`, instead of counting from when the timer
-    /// started. Off by default (behaves as a plain interval-from-now timer).
-    var anchorToClock: Bool = false
-
-    /// Minute-of-the-hour the clock grid is anchored to (0–59). Only meaningful
-    /// when `anchorToClock` is true. Default 0 (top of the hour).
-    var anchorMinute: Int = 0
+    /// The minute the wall-clock grid is aligned to (0–59). Breaks always fire
+    /// on absolute clock times: the grid runs from midnight + `alignMinute`,
+    /// stepping by `breakIntervalMinutes`. e.g. interval 20, align 0 →
+    /// :00 / :20 / :40; interval 120, align 30 → 00:30 / 02:30 / …
+    var alignMinute: Int = 0
 
     // MARK: - Computed: Schedule
 
@@ -169,6 +166,43 @@ struct BreakTimer: Identifiable, Codable, Equatable, Sendable {
         breakIntervalMinutes == 1 ? "1 min" : "\(breakIntervalMinutes) min"
     }
 
+    /// Whether the interval is a whole number of hours (≥ 1h), so the cadence
+    /// reads naturally as "every N hours".
+    var isHourly: Bool {
+        breakIntervalMinutes >= 60 && breakIntervalMinutes % 60 == 0
+    }
+
+    /// Mode-aware cadence string, e.g. "Every 20 min" or "Every 2 hr at :30".
+    var cadenceDescription: String {
+        if isHourly {
+            let hrs = breakIntervalMinutes / 60
+            let base = hrs == 1 ? "Every hour" : "Every \(hrs) hr"
+            return alignMinute == 0 ? base : "\(base) at :\(String(format: "%02d", alignMinute))"
+        }
+        return "Every \(intervalFormatted)"
+    }
+
+    /// Plain-text clause describing exactly when breaks land, for a caption like
+    /// "Fires \(firingPreview)". Shows users the real wall-clock times.
+    var firingPreview: String {
+        let interval = breakIntervalMinutes
+        if interval < 60 && 60 % interval == 0 {
+            let phase = alignMinute % interval
+            let slots = stride(from: phase, to: 60, by: interval)
+                .map { String(format: ":%02d", $0) }
+            return "on the clock — \(slots.joined(separator: " · "))"
+        }
+        if isHourly {
+            let hrs = breakIntervalMinutes / 60
+            let every = hrs == 1 ? "every hour" : "every \(hrs) hours"
+            return alignMinute == 0
+                ? "\(every), on the hour"
+                : "\(every), at :\(String(format: "%02d", alignMinute))"
+        }
+        // Non-divisor sub-hour interval: the grid drifts through the day.
+        return "every \(interval) min, aligned to :\(String(format: "%02d", alignMinute % 60))"
+    }
+
     /// Break duration as a human-readable string, e.g. "20s"
     var durationFormatted: String {
         if breakDurationSeconds >= 60 {
@@ -209,7 +243,7 @@ struct BreakTimer: Identifiable, Codable, Equatable, Sendable {
         copy.endHour = copy.endHour.clamped(to: 0...23)
         copy.endMinute = copy.endMinute.clamped(to: 0...59)
         copy.activeDays = copy.activeDays.filter { (1...7).contains($0) }
-        copy.anchorMinute = copy.anchorMinute.clamped(to: 0...59)
+        copy.alignMinute = copy.alignMinute.clamped(to: 0...59)
         copy.coveredByTimerIDs.remove(copy.id) // a timer can't cover itself
         return copy
     }
@@ -268,9 +302,10 @@ struct BreakTimer: Identifiable, Codable, Equatable, Sendable {
 // Declared in an extension so the synthesized memberwise initializer is
 // preserved (factory presets, AppSettings migration, and tests all use it).
 //
-// `init(from:)` decodes the original fields normally and the coordination
-// fields with `decodeIfPresent ?? default`, so timers saved before those
-// fields existed (the data in `breakTimers_v2`) decode without throwing.
+// `init(from:)` decodes the original fields normally and the newer fields with
+// `decodeIfPresent ?? default`, so timers saved before those fields existed
+// (the data in `breakTimers_v2`) decode without throwing. It also migrates the
+// retired `anchorToClock`/`anchorMinute` fields into `alignMinute`.
 extension BreakTimer {
 
     enum CodingKeys: String, CodingKey {
@@ -279,7 +314,14 @@ extension BreakTimer {
         case overlayColorHex, overlayOpacity, breakMessage, dimAnimationDuration
         case showCountdown, playSoundOnBreak
         case activeDays, startHour, startMinute, endHour, endMinute
-        case coveredByTimerIDs, anchorToClock, anchorMinute
+        case coveredByTimerIDs, alignMinute
+    }
+
+    /// Retired fields, read only to migrate old saved data. The new model is
+    /// always clock-aligned, so `anchorToClock` is dropped and `anchorMinute`
+    /// becomes `alignMinute`.
+    private enum LegacyKeys: String, CodingKey {
+        case anchorMinute
     }
 
     init(from decoder: Decoder) throws {
@@ -301,10 +343,15 @@ extension BreakTimer {
         endHour = try c.decode(Int.self, forKey: .endHour)
         endMinute = try c.decode(Int.self, forKey: .endMinute)
 
-        // Coordination fields — absent in pre-coordination saved data.
         coveredByTimerIDs = try c.decodeIfPresent(Set<UUID>.self, forKey: .coveredByTimerIDs) ?? []
-        anchorToClock = try c.decodeIfPresent(Bool.self, forKey: .anchorToClock) ?? false
-        anchorMinute = try c.decodeIfPresent(Int.self, forKey: .anchorMinute) ?? 0
+
+        // New saves use `alignMinute`; older saves carried `anchorMinute`.
+        if let align = try c.decodeIfPresent(Int.self, forKey: .alignMinute) {
+            alignMinute = align
+        } else {
+            let legacy = try decoder.container(keyedBy: LegacyKeys.self)
+            alignMinute = try legacy.decodeIfPresent(Int.self, forKey: .anchorMinute) ?? 0
+        }
     }
 }
 

@@ -113,8 +113,8 @@ enum DesignTokens {
     /// Minimum break interval in minutes
     static let minBreakIntervalMinutes = 5
 
-    /// Maximum break interval in minutes
-    static let maxBreakIntervalMinutes = 120
+    /// Maximum break interval in minutes (12 hours, to support "every N hours")
+    static let maxBreakIntervalMinutes = 720
 
     /// Minimum break duration in seconds
     static let minBreakDurationSeconds = 10

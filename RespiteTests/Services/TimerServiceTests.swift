@@ -11,10 +11,18 @@ import Testing
 @MainActor
 struct TimerEngineTests {
 
+    /// A clock time on a fixed reference day, in the local calendar.
+    private static func clockDate(_ hour: Int, _ minute: Int) -> Date {
+        Calendar.current.date(
+            bySettingHour: hour, minute: minute, second: 0,
+            of: Date(timeIntervalSinceReferenceDate: 0)
+        )!
+    }
+
     private func makeSUT(
         intervalMinutes: Int = 20,
         durationSeconds: Int = 20,
-        now: Date = Date(timeIntervalSinceReferenceDate: 0)
+        now: Date = TimerEngineTests.clockDate(9, 0) // a clean grid slot
     ) -> (TimerEngine, CurrentDateHolder) {
         let timer = BreakTimer(
             id: UUID(),
@@ -81,28 +89,25 @@ struct TimerEngineTests {
 
     // MARK: - Break Scheduling
 
-    @Test("Next break is scheduled at now + interval")
+    @Test("Next break is scheduled at the next clock slot")
     func breakScheduledAtCorrectTime() {
-        let startTime = Date(timeIntervalSinceReferenceDate: 1000)
-        let (engine, _) = makeSUT(intervalMinutes: 15, now: startTime)
+        // Default now is 09:00 (a grid slot), so a 15-min interval lands at 09:15.
+        let (engine, _) = makeSUT(intervalMinutes: 15)
         engine.start()
-
-        let expectedBreak = startTime.addingTimeInterval(15 * 60)
-        #expect(engine.nextBreakDate == expectedBreak)
+        #expect(engine.nextBreakDate == dateAt(9, 15))
     }
 
-    @Test("Skip next break reschedules from now")
+    @Test("Skip next break advances past the upcoming slot")
     func skipNextBreak() {
-        let startTime = Date(timeIntervalSinceReferenceDate: 1000)
-        let (engine, dateHolder) = makeSUT(intervalMinutes: 20, now: startTime)
+        let (engine, dateHolder) = makeSUT(intervalMinutes: 20)
         engine.start()
-        let firstBreakDate = engine.nextBreakDate
+        let firstBreakDate = engine.nextBreakDate // 09:20
 
-        dateHolder.now = startTime.addingTimeInterval(5 * 60)
+        dateHolder.now = dateAt(9, 5)
         engine.skipNextBreak()
 
-        let expectedBreak = dateHolder.now.addingTimeInterval(20 * 60)
-        #expect(engine.nextBreakDate == expectedBreak)
+        // Skips the 09:20 slot, lands on the next one.
+        #expect(engine.nextBreakDate == dateAt(9, 40))
         #expect(engine.nextBreakDate != firstBreakDate)
     }
 
@@ -187,20 +192,18 @@ struct TimerEngineTests {
         }
     }
 
-    @Test("Resume from pause schedules a fresh break")
+    @Test("Resume from pause schedules onto the next clock slot")
     func resumeFromPause() {
-        let startTime = Date(timeIntervalSinceReferenceDate: 1000)
-        let (engine, dateHolder) = makeSUT(intervalMinutes: 20, now: startTime)
+        let (engine, dateHolder) = makeSUT(intervalMinutes: 20)
         engine.start()
         engine.pause(minutes: nil)
         #expect(engine.isPaused)
 
-        dateHolder.now = startTime.addingTimeInterval(10 * 60)
+        dateHolder.now = dateAt(9, 10)
         engine.resume()
 
         #expect(engine.isCounting)
-        let expectedBreak = dateHolder.now.addingTimeInterval(20 * 60)
-        #expect(engine.nextBreakDate == expectedBreak)
+        #expect(engine.nextBreakDate == dateAt(9, 20))
     }
 
     // MARK: - Invalid Transitions
@@ -296,24 +299,16 @@ struct TimerEngineTests {
 
     // MARK: - Sleep/Wake Simulation
 
-    @Test("After wake past break time, break is rescheduled with grace period")
-    func wakeGracePeriod() {
-        let startTime = Date(timeIntervalSinceReferenceDate: 1000)
-        let (engine, dateHolder) = makeSUT(intervalMinutes: 20, now: startTime)
-        engine.start()
-        let originalBreakDate = engine.nextBreakDate!
+    @Test("After waking past a slot, snaps to the next clock slot")
+    func wakeSnapsToGrid() {
+        let (engine, dateHolder) = makeSUT(intervalMinutes: 20)
+        engine.start() // next 09:20
 
-        dateHolder.now = startTime.addingTimeInterval(30 * 60)
+        dateHolder.now = dateAt(9, 50) // slept through 09:20 and 09:40
         engine.handleSystemWake()
 
         #expect(engine.isCounting)
-        if let newBreakDate = engine.nextBreakDate {
-            let gracePeriod = newBreakDate.timeIntervalSince(dateHolder.now)
-            #expect(newBreakDate > originalBreakDate)
-            #expect(gracePeriod > 0 && gracePeriod <= 3.0)
-        } else {
-            Issue.record("Expected nextBreakDate to be set")
-        }
+        #expect(engine.nextBreakDate == dateAt(10, 0))
     }
 
     @Test("Timed pause resumes if wake occurs past its resume time")
@@ -359,18 +354,14 @@ struct TimerEngineTests {
             activeDays: [1, 2, 3, 4, 5, 6, 7], startHour: 0, startMinute: 0,
             endHour: 23, endMinute: 59
         )
-        timer.anchorToClock = true
-        timer.anchorMinute = anchorMinute
+        timer.alignMinute = anchorMinute
         let holder = CurrentDateHolder(now)
         let engine = TimerEngine(breakTimer: timer, dateProvider: { holder.now })
         return (engine, holder)
     }
 
     private func dateAt(_ hour: Int, _ minute: Int) -> Date {
-        Calendar.current.date(
-            bySettingHour: hour, minute: minute, second: 0,
-            of: Date(timeIntervalSinceReferenceDate: 0)
-        )!
+        Self.clockDate(hour, minute)
     }
 
     @Test("Anchored timer fires at the next clock slot")
@@ -399,19 +390,18 @@ struct TimerEngineTests {
         #expect(engine.nextBreakDate == dateAt(10, 20))
     }
 
-    @Test("Skip-once on a non-anchored timer keeps phase, not now")
-    func skipOnceNonAnchoredKeepsPhase() {
-        let start = Date(timeIntervalSinceReferenceDate: 1000)
-        let (engine, holder) = makeSUT(intervalMinutes: 20, now: start)
+    @Test("Skip-once stays on the grid even when called late")
+    func skipOnceStaysOnGrid() {
+        let (engine, holder) = makeAnchoredSUT(intervalMinutes: 20, anchorMinute: 0, now: dateAt(9, 0))
         engine.start()
-        let scheduled = engine.nextBreakDate!     // start + 20 min
+        let scheduled = engine.nextBreakDate!     // 09:20
 
         // Suppression happens slightly after the scheduled fire.
         holder.now = scheduled.addingTimeInterval(5)
         engine.skipScheduledOccurrence()
 
-        // Advances from the scheduled occurrence (+20 min), ignoring `now`.
-        #expect(engine.nextBreakDate == scheduled.addingTimeInterval(20 * 60))
+        // Advances to the next grid slot (09:40), not now + interval.
+        #expect(engine.nextBreakDate == dateAt(9, 40))
         #expect(engine.isCounting)
     }
 
@@ -467,20 +457,18 @@ struct TimerEngineTests {
         #expect(engine.breakTimer.breakMessage == "New message")
     }
 
-    @Test("Enabling clock anchor while counting reschedules onto the grid")
-    func enablingAnchorReschedules() {
-        let (engine, _) = makeSUT(intervalMinutes: 60, now: dateAt(12, 28))
+    @Test("Changing align minute while counting reschedules onto the new grid")
+    func changingAlignReschedules() {
+        let (engine, _) = makeAnchoredSUT(intervalMinutes: 60, anchorMinute: 0, now: dateAt(12, 28))
         engine.start()
-        // Non-anchored: next break is 60 min out (13:28), off the clock grid.
-        #expect(engine.nextBreakDate == dateAt(13, 28))
+        #expect(engine.nextBreakDate == dateAt(13, 0)) // hourly on the hour
 
-        var anchored = engine.breakTimer
-        anchored.anchorToClock = true
-        anchored.anchorMinute = 0
-        engine.updateConfiguration(anchored)
+        var updated = engine.breakTimer
+        updated.alignMinute = 30
+        engine.updateConfiguration(updated)
 
-        // Now snaps to the next top-of-hour slot.
-        #expect(engine.nextBreakDate == dateAt(13, 0))
+        // Re-aligns to :30 → next slot is 12:30.
+        #expect(engine.nextBreakDate == dateAt(12, 30))
     }
 }
 

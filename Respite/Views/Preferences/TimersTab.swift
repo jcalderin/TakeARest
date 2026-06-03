@@ -206,13 +206,8 @@ private struct TimerListRow: View {
                         .foregroundStyle(timer.isEnabled ? .primary : .secondary)
 
                     HStack(spacing: 4) {
-                        Text("Every \(timer.intervalFormatted), \(timer.durationFormatted) break")
+                        Text("\(timer.cadenceDescription), \(timer.durationFormatted) break")
                             .foregroundStyle(.secondary)
-                        if timer.anchorToClock {
-                            Image(systemName: "clock")
-                                .foregroundStyle(.tertiary)
-                                .help("Aligned to the clock at :\(String(format: "%02d", timer.anchorMinute))")
-                        }
                         if !timer.coveredByTimerIDs.isEmpty {
                             Image(systemName: "rectangle.on.rectangle.slash")
                                 .foregroundStyle(.tertiary)
@@ -220,6 +215,7 @@ private struct TimerListRow: View {
                         }
                     }
                     .font(.caption)
+                    .help("Fires \(timer.firingPreview)")
 
                     HStack(spacing: 4) {
                         Text(timer.daysDescription)
@@ -278,12 +274,24 @@ private struct TimerListRow: View {
 // MARK: - Timer Editor (Modern Glass Design)
 
 struct TimerEditor: View {
-    @State var timer: BreakTimer
+    @State private var timer: BreakTimer
+    /// Which unit the "How often" control is showing. Derived from the timer's
+    /// interval on open; not persisted (firing is the same either way).
+    @State private var repeatUnit: RepeatUnit
     /// All timers, used to populate the "Covered by" picker. Excludes self.
-    var allTimers: [BreakTimer] = []
-    var onSave: (BreakTimer) -> Void
+    let allTimers: [BreakTimer]
+    let onSave: (BreakTimer) -> Void
 
     @Environment(\.dismiss) private var dismiss
+
+    init(timer: BreakTimer, allTimers: [BreakTimer] = [], onSave: @escaping (BreakTimer) -> Void) {
+        _timer = State(initialValue: timer)
+        _repeatUnit = State(initialValue: timer.isHourly ? .hours : .minutes)
+        self.allTimers = allTimers
+        self.onSave = onSave
+    }
+
+    enum RepeatUnit { case minutes, hours }
 
     private let weekdays = [
         (2, "Mon"), (3, "Tue"), (4, "Wed"), (5, "Thu"),
@@ -348,19 +356,50 @@ struct TimerEditor: View {
         }
     }
 
-    // MARK: - Timing Section
+    // MARK: - How Often Section
 
     private var timingSection: some View {
-        GlassSection("Break Timing") {
+        GlassSection("How Often") {
             SettingRow {
-                Text("Break every")
+                Text("Repeat")
                 Spacer()
-                CompactNumberInput(
-                    value: $timer.breakIntervalMinutes,
-                    range: DesignTokens.minBreakIntervalMinutes...DesignTokens.maxBreakIntervalMinutes,
-                    step: 5,
-                    unit: "min"
-                )
+                Picker("", selection: Binding(
+                    get: { repeatUnit },
+                    set: { setUnit($0) }
+                )) {
+                    Text("Minutes").tag(RepeatUnit.minutes)
+                    Text("Hours").tag(RepeatUnit.hours)
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .fixedSize()
+            }
+
+            GlassDivider()
+
+            if repeatUnit == .minutes {
+                SettingRow {
+                    Text("Every")
+                    Spacer()
+                    CompactNumberInput(
+                        value: $timer.breakIntervalMinutes,
+                        range: 5...55,
+                        step: 5,
+                        unit: "min"
+                    )
+                }
+            } else {
+                SettingRow {
+                    Text("Every")
+                    Spacer()
+                    CompactNumberInput(value: hoursBinding, range: 1...12, step: 1, unit: "hr")
+                }
+                GlassDivider()
+                SettingRow {
+                    Text("At minute")
+                    Spacer()
+                    CompactNumberInput(value: $timer.alignMinute, range: 0...59, step: 5, unit: "min")
+                }
             }
 
             GlassDivider()
@@ -376,36 +415,29 @@ struct TimerEditor: View {
                 )
             }
 
-            GlassDivider()
-
-            SettingRow {
-                Toggle("Align to clock", isOn: Binding(
-                    get: { timer.anchorToClock },
-                    set: { newValue in
-                        withAnimation(.easeInOut(duration: 0.2)) { timer.anchorToClock = newValue }
-                    }
-                ))
-                .tint(DesignTokens.primaryBlue)
-            }
-
-            if timer.anchorToClock {
-                GlassDivider()
-
-                SettingRow {
-                    Text("Anchor at")
-                    Spacer()
-                    CompactNumberInput(
-                        value: $timer.anchorMinute,
-                        range: 0...59,
-                        step: 5,
-                        unit: "min"
-                    )
-                }
-
-                SectionCaption("Fires on the clock, e.g. :00 / :20 / :40, instead of counting from when it started.")
-            }
+            SectionCaption("Fires \(timer.firingPreview).")
         }
         .transition(.opacity)
+    }
+
+    /// Hours view over the minute-based interval.
+    private var hoursBinding: Binding<Int> {
+        Binding(
+            get: { max(1, timer.breakIntervalMinutes / 60) },
+            set: { timer.breakIntervalMinutes = $0 * 60 }
+        )
+    }
+
+    /// Switch units, coercing the interval into the new unit's sensible range.
+    private func setUnit(_ unit: RepeatUnit) {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            if unit == .hours, timer.breakIntervalMinutes < 60 {
+                timer.breakIntervalMinutes = 60
+            } else if unit == .minutes, timer.breakIntervalMinutes > 55 {
+                timer.breakIntervalMinutes = 30
+            }
+            repeatUnit = unit
+        }
     }
 
     // MARK: - Coordination Section

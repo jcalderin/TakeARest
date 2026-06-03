@@ -261,20 +261,18 @@ struct BreakTimerTests {
         var original = BreakTimer.screenBreak()
         let coveringID = UUID()
         original.coveredByTimerIDs = [coveringID]
-        original.anchorToClock = true
-        original.anchorMinute = 15
+        original.alignMinute = 15
 
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(BreakTimer.self, from: data)
 
         #expect(decoded == original)
         #expect(decoded.coveredByTimerIDs == [coveringID])
-        #expect(decoded.anchorToClock)
-        #expect(decoded.anchorMinute == 15)
+        #expect(decoded.alignMinute == 15)
     }
 
-    /// Guards the data we just restored: JSON saved before the coordination
-    /// fields existed must still decode (defaults applied, no throw).
+    /// Guards the data we just restored: JSON saved before these fields existed
+    /// must still decode (defaults applied, no throw).
     @Test("Legacy JSON without coordination fields decodes with defaults")
     func legacyDecodeAppliesDefaults() throws {
         let original = BreakTimer.screenBreak()
@@ -282,16 +280,31 @@ struct BreakTimerTests {
             with: JSONEncoder().encode(original)
         ) as! [String: Any]
         dict.removeValue(forKey: "coveredByTimerIDs")
-        dict.removeValue(forKey: "anchorToClock")
-        dict.removeValue(forKey: "anchorMinute")
+        dict.removeValue(forKey: "alignMinute")
 
         let legacyData = try JSONSerialization.data(withJSONObject: dict)
         let decoded = try JSONDecoder().decode(BreakTimer.self, from: legacyData)
 
         #expect(decoded.coveredByTimerIDs.isEmpty)
-        #expect(decoded.anchorToClock == false)
-        #expect(decoded.anchorMinute == 0)
+        #expect(decoded.alignMinute == 0)
         #expect(decoded.name == "Screen Break") // original fields intact
+    }
+
+    /// The retired `anchorToClock`/`anchorMinute` fields migrate to `alignMinute`.
+    @Test("Legacy anchor fields migrate to alignMinute")
+    func legacyAnchorMigratesToAlign() throws {
+        let original = BreakTimer.screenBreak()
+        var dict = try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(original)
+        ) as! [String: Any]
+        dict.removeValue(forKey: "alignMinute")
+        dict["anchorToClock"] = true
+        dict["anchorMinute"] = 30
+
+        let legacyData = try JSONSerialization.data(withJSONObject: dict)
+        let decoded = try JSONDecoder().decode(BreakTimer.self, from: legacyData)
+
+        #expect(decoded.alignMinute == 30)
     }
 
     // MARK: - Factory Presets
