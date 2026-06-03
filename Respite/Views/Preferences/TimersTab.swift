@@ -278,6 +278,10 @@ struct TimerEditor: View {
     /// Which unit the "How often" control is showing. Derived from the timer's
     /// interval on open; not persisted (firing is the same either way).
     @State private var repeatUnit: RepeatUnit
+    /// Remembered values per unit, so switching units round-trips without losing
+    /// the user's number.
+    @State private var lastMinutes: Int
+    @State private var lastHours: Int
     /// All timers, used to populate the "Covered by" picker. Excludes self.
     let allTimers: [BreakTimer]
     let onSave: (BreakTimer) -> Void
@@ -286,7 +290,10 @@ struct TimerEditor: View {
 
     init(timer: BreakTimer, allTimers: [BreakTimer] = [], onSave: @escaping (BreakTimer) -> Void) {
         _timer = State(initialValue: timer)
-        _repeatUnit = State(initialValue: timer.isHourly ? .hours : .minutes)
+        let hourly = timer.isHourly
+        _repeatUnit = State(initialValue: hourly ? .hours : .minutes)
+        _lastMinutes = State(initialValue: hourly ? 20 : timer.breakIntervalMinutes)
+        _lastHours = State(initialValue: hourly ? timer.breakIntervalMinutes / 60 : 1)
         self.allTimers = allTimers
         self.onSave = onSave
     }
@@ -428,13 +435,17 @@ struct TimerEditor: View {
         )
     }
 
-    /// Switch units, coercing the interval into the new unit's sensible range.
+    /// Switch units, remembering the outgoing value and restoring the other
+    /// unit's last value so the user's number isn't lost.
     private func setUnit(_ unit: RepeatUnit) {
+        guard unit != repeatUnit else { return }
         withAnimation(.easeInOut(duration: 0.2)) {
-            if unit == .hours, timer.breakIntervalMinutes < 60 {
-                timer.breakIntervalMinutes = 60
-            } else if unit == .minutes, timer.breakIntervalMinutes > 55 {
-                timer.breakIntervalMinutes = 30
+            if unit == .hours {
+                lastMinutes = timer.breakIntervalMinutes
+                timer.breakIntervalMinutes = lastHours * 60
+            } else {
+                lastHours = max(1, timer.breakIntervalMinutes / 60)
+                timer.breakIntervalMinutes = lastMinutes
             }
             repeatUnit = unit
         }

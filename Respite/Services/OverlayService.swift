@@ -118,7 +118,7 @@ final class OverlayService {
     }
 
     private func createOverlayWindow<Content: View>(screen: NSScreen, content: Content) -> NSWindow {
-        let window = NSWindow(
+        let window = KeyableOverlayWindow(
             contentRect: screen.frame,
             styleMask: [.borderless],
             backing: .buffered,
@@ -146,4 +146,12 @@ final class OverlayService {
 
         return window
     }
+}
+
+/// A borderless window that can still become key, so the overlay's SwiftUI
+/// `.onKeyPress` handlers (Esc to skip, Space to postpone) receive key events.
+/// Plain borderless `NSWindow`s return `false` for `canBecomeKey`.
+private final class KeyableOverlayWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
 }

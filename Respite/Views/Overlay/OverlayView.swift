@@ -11,6 +11,8 @@ struct OverlayView: View {
     var onSkip: () -> Void
     var onPostpone: () -> Void
 
+    @FocusState private var focused: Bool
+
     var body: some View {
         ZStack {
             // MARK: - Background
@@ -71,15 +73,20 @@ struct OverlayView: View {
                 }
                 .animation(.easeInOut(duration: 0.3), value: engine.canPostpone)
 
-                // Keyboard hint
+                // Keyboard hint — order matches the buttons above
+                // (Postpone on the left with Space, Skip on the right with Esc).
                 Text(engine.canPostpone
-                     ? "Press Esc to skip  ·  Space to postpone"
-                     : "Press Esc to skip")
+                     ? "Space to postpone  ·  Esc to skip"
+                     : "Esc to skip")
                     .font(.system(size: 11))
                     .foregroundStyle(.white.opacity(0.3))
                     .padding(.bottom, DesignTokens.spacingXL)
             }
         }
+        .focusable()
+        .focused($focused)
+        .focusEffectDisabled()
+        .onAppear { focused = true }
         .onKeyPress(.escape) {
             onSkip()
             return .handled
