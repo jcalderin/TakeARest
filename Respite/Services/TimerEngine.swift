@@ -95,13 +95,16 @@ final class TimerEngine: Identifiable {
     // MARK: - Configuration Update
 
     /// Update the engine's configuration live (e.g. when user edits in Preferences).
-    /// If the interval changed while counting, reschedules appropriately.
+    /// If anything affecting *when* the next break fires changed while counting,
+    /// reschedules so the change takes effect immediately.
     func updateConfiguration(_ newTimer: BreakTimer) {
-        let oldInterval = breakTimer.breakIntervalMinutes
+        let timingChanged =
+            newTimer.breakIntervalMinutes != breakTimer.breakIntervalMinutes ||
+            newTimer.anchorToClock != breakTimer.anchorToClock ||
+            newTimer.anchorMinute != breakTimer.anchorMinute
         breakTimer = newTimer
 
-        // If interval changed while counting, reschedule
-        if state == .counting && newTimer.breakIntervalMinutes != oldInterval {
+        if state == .counting && timingChanged {
             scheduleNextBreak()
         }
     }

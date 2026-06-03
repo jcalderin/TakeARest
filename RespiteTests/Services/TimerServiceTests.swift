@@ -466,6 +466,22 @@ struct TimerEngineTests {
         #expect(engine.breakTimer.breakIntervalMinutes == 30)
         #expect(engine.breakTimer.breakMessage == "New message")
     }
+
+    @Test("Enabling clock anchor while counting reschedules onto the grid")
+    func enablingAnchorReschedules() {
+        let (engine, _) = makeSUT(intervalMinutes: 60, now: dateAt(12, 28))
+        engine.start()
+        // Non-anchored: next break is 60 min out (13:28), off the clock grid.
+        #expect(engine.nextBreakDate == dateAt(13, 28))
+
+        var anchored = engine.breakTimer
+        anchored.anchorToClock = true
+        anchored.anchorMinute = 0
+        engine.updateConfiguration(anchored)
+
+        // Now snaps to the next top-of-hour slot.
+        #expect(engine.nextBreakDate == dateAt(13, 0))
+    }
 }
 
 // MARK: - Test Helper
