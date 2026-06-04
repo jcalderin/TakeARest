@@ -371,6 +371,21 @@ struct TimerEngineTests {
         #expect(engine.nextBreakDate == dateAt(10, 20))
     }
 
+    @Test("Align offset shifts the grid so a slot lands before the hour")
+    func alignOffsetShiftsGrid() {
+        // Every 20 min, aligned to :55 → slots :15 / :35 / :55.
+        let (engine, _) = makeAnchoredSUT(intervalMinutes: 20, anchorMinute: 55, now: dateAt(10, 0))
+        engine.start()
+        #expect(engine.nextBreakDate == dateAt(10, 15))
+    }
+
+    @Test("Align offset lands a slot at :55 to finish before the hour")
+    func alignOffsetLandsAtFiftyFive() {
+        let (engine, _) = makeAnchoredSUT(intervalMinutes: 20, anchorMinute: 55, now: dateAt(10, 40))
+        engine.start()
+        #expect(engine.nextBreakDate == dateAt(10, 55))
+    }
+
     @Test("Anchored interval that doesn't divide 60 still steps on grid")
     func anchoredNonDivisorInterval() {
         // 25-min interval, anchor 0 → slots :00, :25, :50, …

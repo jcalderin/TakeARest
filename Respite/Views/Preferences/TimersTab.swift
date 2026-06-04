@@ -395,6 +395,12 @@ struct TimerEditor: View {
                         unit: "min"
                     )
                 }
+                GlassDivider()
+                SettingRow {
+                    Text("At minute")
+                    Spacer()
+                    CompactNumberInput(value: $timer.alignMinute, range: 0...59, step: 1, unit: "min")
+                }
             } else {
                 SettingRow {
                     Text("Every")
@@ -405,7 +411,7 @@ struct TimerEditor: View {
                 SettingRow {
                     Text("At minute")
                     Spacer()
-                    CompactNumberInput(value: $timer.alignMinute, range: 0...59, step: 5, unit: "min")
+                    CompactNumberInput(value: $timer.alignMinute, range: 0...59, step: 1, unit: "min")
                 }
             }
 
