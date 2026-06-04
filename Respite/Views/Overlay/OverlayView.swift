@@ -81,15 +81,8 @@ struct OverlayView: View {
                     .padding(.bottom, DesignTokens.spacingXL)
             }
         }
-        .onKeyPress(.escape) {
-            onSkip()
-            return .handled
-        }
-        .onKeyPress(.space) {
-            guard engine.canPostpone else { return .ignored }
-            onPostpone()
-            return .handled
-        }
+        // Esc/Space are handled by OverlayService's key monitor (works without
+        // SwiftUI focus, which previously had to be forced and broke the overlay).
     }
 }
 
