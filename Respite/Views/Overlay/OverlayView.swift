@@ -11,8 +11,6 @@ struct OverlayView: View {
     var onSkip: () -> Void
     var onPostpone: () -> Void
 
-    @FocusState private var focused: Bool
-
     var body: some View {
         ZStack {
             // MARK: - Background
@@ -83,10 +81,6 @@ struct OverlayView: View {
                     .padding(.bottom, DesignTokens.spacingXL)
             }
         }
-        .focusable()
-        .focused($focused)
-        .focusEffectDisabled()
-        .onAppear { focused = true }
         .onKeyPress(.escape) {
             onSkip()
             return .handled
