@@ -1,5 +1,8 @@
 import AppKit
+import OSLog
 import SwiftUI
+
+private let log = Logger(subsystem: "com.cholas.Respite", category: "overlay")
 
 /// Manages full-screen break overlay windows across all connected displays.
 ///
@@ -25,10 +28,6 @@ final class OverlayService {
 
     private var overlayWindows: [NSWindow] = []
 
-    /// Local key monitor active only while the overlay is shown, so Esc/Space
-    /// drive skip/postpone without relying on SwiftUI focus.
-    private var keyMonitor: Any?
-
     // MARK: - Init
 
     init(timerManager: TimerManager) {
@@ -39,14 +38,25 @@ final class OverlayService {
 
     /// Show break overlays on all connected screens for the given timer.
     func show(for timer: BreakTimer, engine: TimerEngine) {
-        guard !isShowing else { return }
+        guard !isShowing else {
+            log.warning("show(\(timer.name, privacy: .public)) ignored — already showing")
+            return
+        }
 
         let screens = NSScreen.screens
-        guard !screens.isEmpty else { return }
-        let mainScreen = NSScreen.main ?? screens[0]
+        guard !screens.isEmpty else {
+            log.error("show(\(timer.name, privacy: .public)) — no screens")
+            return
+        }
+        // Pick the interactive screen by index. Comparing NSScreen instances
+        // directly can fail (NSScreen.main may be a different instance than the
+        // ones in .screens), which would leave zero interactive overlays.
+        let mainIndex = screens.firstIndex { $0 == NSScreen.main } ?? 0
+        log.info("show(\(timer.name, privacy: .public)) — screens=\(screens.count) mainIndex=\(mainIndex)")
 
-        for screen in screens {
-            let isMain = (screen == mainScreen)
+        for (index, screen) in screens.enumerated() {
+            let isMain = (index == mainIndex)
+            log.info("  window[\(index)] isMain=\(isMain) frame=\(NSStringFromRect(screen.frame), privacy: .public)")
             let window: NSWindow
 
             if isMain {
@@ -77,27 +87,7 @@ final class OverlayService {
         }
 
         NSApplication.shared.activate(ignoringOtherApps: true)
-        installKeyMonitor(for: engine)
         isShowing = true
-    }
-
-    /// Esc → skip, Space → postpone (when allowed). Returns nil to consume the
-    /// event so it doesn't leak to anything behind the overlay.
-    private func installKeyMonitor(for engine: TimerEngine) {
-        keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self else { return event }
-            switch event.keyCode {
-            case 53: // Escape
-                self.skip(engine: engine)
-                return nil
-            case 49: // Space
-                guard engine.canPostpone else { return event }
-                self.postpone(engine: engine, minutes: 5)
-                return nil
-            default:
-                return event
-            }
-        }
     }
 
     /// Dismiss all overlay windows.
@@ -134,10 +124,6 @@ final class OverlayService {
     }
 
     private func tearDownAllWindows() {
-        if let keyMonitor {
-            NSEvent.removeMonitor(keyMonitor)
-            self.keyMonitor = nil
-        }
         for window in overlayWindows {
             window.orderOut(nil)
         }
@@ -146,7 +132,7 @@ final class OverlayService {
     }
 
     private func createOverlayWindow<Content: View>(screen: NSScreen, content: Content) -> NSWindow {
-        let window = KeyableOverlayWindow(
+        let window = NSWindow(
             contentRect: screen.frame,
             styleMask: [.borderless],
             backing: .buffered,
@@ -174,12 +160,4 @@ final class OverlayService {
 
         return window
     }
-}
-
-/// A borderless overlay window that can become **key** (so the key monitor
-/// receives Esc/Space) but never **main** — becoming main is what disturbed the
-/// agent app's scene management and surfaced the Settings window.
-private final class KeyableOverlayWindow: NSWindow {
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { false }
 }

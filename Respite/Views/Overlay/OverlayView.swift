@@ -70,19 +70,9 @@ struct OverlayView: View {
                     .foregroundStyle(.white.opacity(0.6))
                 }
                 .animation(.easeInOut(duration: 0.3), value: engine.canPostpone)
-
-                // Keyboard hint — order matches the buttons above
-                // (Postpone on the left with Space, Skip on the right with Esc).
-                Text(engine.canPostpone
-                     ? "Space to postpone  ·  Esc to skip"
-                     : "Esc to skip")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.3))
-                    .padding(.bottom, DesignTokens.spacingXL)
+                .padding(.bottom, DesignTokens.spacingXL)
             }
         }
-        // Esc/Space are handled by OverlayService's key monitor (works without
-        // SwiftUI focus, which previously had to be forced and broke the overlay).
     }
 }
 
