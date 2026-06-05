@@ -70,7 +70,15 @@ struct OverlayView: View {
                     .foregroundStyle(.white.opacity(0.6))
                 }
                 .animation(.easeInOut(duration: 0.3), value: engine.canPostpone)
-                .padding(.bottom, DesignTokens.spacingXL)
+
+                // Keyboard hint — order matches the buttons (Postpone/Space left,
+                // Skip/Esc right).
+                Text(engine.canPostpone
+                     ? "Space to postpone  ·  Esc to skip"
+                     : "Esc to skip")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.3))
+                    .padding(.bottom, DesignTokens.spacingXL)
             }
         }
     }
