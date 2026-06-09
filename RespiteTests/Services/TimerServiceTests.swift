@@ -446,6 +446,59 @@ struct TimerEngineTests {
         #expect(engine.nextBreakDate == dateAt(10, 40))
     }
 
+    // MARK: - Pre-Warning
+
+    /// An engine whose next slot is `secondsBefore` away, with a lead window
+    /// wide enough to cover it.
+    private func makePreWarnSUT(
+        style: PreWarnStyle, leadSeconds: Int, now: Date
+    ) -> (TimerEngine, CurrentDateHolder) {
+        let (engine, holder) = makeAnchoredSUT(intervalMinutes: 20, anchorMinute: 0, now: now)
+        var cfg = engine.breakTimer
+        cfg.preWarnStyle = style
+        cfg.preWarnSeconds = leadSeconds
+        engine.updateConfiguration(cfg) // engine is idle here, just stores config
+        return (engine, holder)
+    }
+
+    @Test("Pre-warn fires once when the countdown enters the lead window")
+    func preWarnFiresOnce() {
+        // 09:19 → next slot 09:20 (60s away), lead 120s covers it.
+        let (engine, holder) = makePreWarnSUT(style: .pill, leadSeconds: 120, now: dateAt(9, 19))
+        var count = 0
+        engine.onPreWarn = { _, _ in count += 1 }
+
+        engine.start()           // first tick: 60s ≤ 120 → fires
+        #expect(count == 1)
+
+        engine.handleSystemWake() // forces another tick; must not re-fire
+        #expect(count == 1)
+    }
+
+    @Test("Pre-warn does not fire when style is off")
+    func preWarnOffDoesNotFire() {
+        let (engine, _) = makePreWarnSUT(style: .off, leadSeconds: 120, now: dateAt(9, 19))
+        var count = 0
+        engine.onPreWarn = { _, _ in count += 1 }
+        engine.start()
+        #expect(count == 0)
+    }
+
+    @Test("Pre-warn is cancelled when paused mid-warning")
+    func preWarnCancelOnPause() {
+        let (engine, _) = makePreWarnSUT(style: .pill, leadSeconds: 120, now: dateAt(9, 19))
+        var warned = false
+        var cancelled = false
+        engine.onPreWarn = { _, _ in warned = true }
+        engine.onPreWarnCancel = { cancelled = true }
+
+        engine.start()
+        #expect(warned)
+
+        engine.pause(minutes: nil)
+        #expect(cancelled)
+    }
+
     // MARK: - Countdown Formatting
 
     @Test("Countdown formatted string is correct")

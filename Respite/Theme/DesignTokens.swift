@@ -130,4 +130,12 @@ enum DesignTokens {
     /// far below the 5-minute minimum interval so it can't suppress a genuinely
     /// later occurrence.
     static let coverageCoincidenceWindow: TimeInterval = 90
+
+    // MARK: - Pre-Warning (heads-up before a break)
+
+    /// Default seconds of heads-up before a break.
+    static let preWarnDefaultSeconds = 30
+    /// Minimum / maximum configurable heads-up lead time, in seconds.
+    static let minPreWarnSeconds = 5
+    static let maxPreWarnSeconds = 300
 }

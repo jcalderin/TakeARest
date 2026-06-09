@@ -57,6 +57,17 @@ final class TimerEngine: Identifiable {
     /// Callback fired when a break ends (naturally or skipped).
     var onBreakEnded: ((BreakTimer) -> Void)?
 
+    /// Fired once per cycle when the countdown crosses the pre-warn lead time
+    /// (and the timer's style isn't `.off`), so a heads-up can be shown.
+    var onPreWarn: ((BreakTimer, TimerEngine) -> Void)?
+
+    /// Fired when an active pre-warning should be taken down without a break
+    /// starting (e.g. the user paused or skipped during the heads-up).
+    var onPreWarnCancel: (() -> Void)?
+
+    /// Whether the heads-up has already fired in the current counting cycle.
+    private var hasPreWarned = false
+
     // MARK: - Identity
 
     /// Stable identifier matching the BreakTimer's id.
@@ -118,6 +129,7 @@ final class TimerEngine: Identifiable {
 
     /// Stop the engine entirely. Returns to idle.
     func stop() {
+        cancelPreWarnIfNeeded()
         state = .idle
         nextBreakDate = nil
         secondsUntilBreak = 0
@@ -162,6 +174,7 @@ final class TimerEngine: Identifiable {
     /// Pass `nil` for indefinite pause ("Until I Resume").
     func pause(minutes: Int?) {
         guard state == .counting else { return }
+        cancelPreWarnIfNeeded()
         stopTicking()
         endActivity()
         if let minutes {
@@ -223,7 +236,16 @@ final class TimerEngine: Identifiable {
         nextBreakDate = nextFireDate(after: dateProvider())
         state = .counting
         postponeCount = 0
+        hasPreWarned = false
         startTicking()
+    }
+
+    /// Take down an active heads-up that won't be followed by a break starting
+    /// (paused/skipped/stopped mid-warning).
+    private func cancelPreWarnIfNeeded() {
+        guard hasPreWarned else { return }
+        hasPreWarned = false
+        onPreWarnCancel?()
     }
 
     /// Skip the currently-scheduled break once, keeping the wall-clock grid.
@@ -234,6 +256,7 @@ final class TimerEngine: Identifiable {
     /// timer stays on its grid. Fires no callbacks and does not touch
     /// `postponeCount`. Tolerates being called while `.counting` or `.onBreak`.
     func skipScheduledOccurrence() {
+        cancelPreWarnIfNeeded()
         let base = nextBreakDate ?? dateProvider()
         nextBreakDate = nextFireDate(after: base)
         secondsRemainingInBreak = 0
@@ -265,6 +288,7 @@ final class TimerEngine: Identifiable {
         let endsAt = now.addingTimeInterval(duration)
         state = .onBreak(endsAt: endsAt)
         secondsRemainingInBreak = breakTimer.breakDurationSeconds
+        hasPreWarned = false
         endActivity()
         onBreakStarted?(breakTimer)
     }
@@ -311,6 +335,13 @@ final class TimerEngine: Identifiable {
                 // firing over long idle periods; in the final minute also block
                 // idle sleep so the break reliably fires.
                 updateActivity(blockSleep: remaining <= 60)
+                // Heads-up: fire once when crossing the pre-warn lead time.
+                if !hasPreWarned,
+                   breakTimer.preWarnStyle != .off,
+                   secondsUntilBreak <= breakTimer.preWarnSeconds {
+                    hasPreWarned = true
+                    onPreWarn?(breakTimer, self)
+                }
             }
 
         case .onBreak(let endsAt):

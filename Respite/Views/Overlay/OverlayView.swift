@@ -84,6 +84,117 @@ struct OverlayView: View {
     }
 }
 
+// MARK: - Pre-Warning Views
+
+/// Routes to the configured heads-up style, reading the live countdown from
+/// the engine. Centered content; never interactive except the `.hud` buttons.
+struct PreWarnView: View {
+    var timer: BreakTimer
+    var engine: TimerEngine
+    var onStartNow: () -> Void
+    var onSkip: () -> Void
+
+    private var seconds: Int { max(0, engine.secondsUntilBreak) }
+
+    var body: some View {
+        switch timer.preWarnStyle {
+        case .bar:
+            PreWarnBar(progress: progress, color: timer.overlayColor)
+        case .pill:
+            centered { PreWarnPill(seconds: seconds, color: timer.overlayColor) }
+        case .hud:
+            centered {
+                PreWarnHUD(seconds: seconds, color: timer.overlayColor,
+                           onStartNow: onStartNow, onSkip: onSkip)
+            }
+        case .off:
+            EmptyView()
+        }
+    }
+
+    /// Fraction of the lead time elapsed (0 → 1 as the break approaches).
+    private var progress: Double {
+        let lead = Double(max(1, timer.preWarnSeconds))
+        return min(1, max(0, 1 - Double(seconds) / lead))
+    }
+
+    private func centered<V: View>(@ViewBuilder _ content: () -> V) -> some View {
+        ZStack { Color.clear; content() }
+    }
+}
+
+private struct PreWarnPill: View {
+    let seconds: Int
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: DesignTokens.spacingXS) {
+            Image(systemName: "cup.and.saucer.fill")
+                .foregroundStyle(color)
+            Text("Break in \(seconds)s")
+                .font(.system(size: 15, weight: .medium, design: .rounded))
+                .monospacedDigit()
+        }
+        .padding(.horizontal, DesignTokens.spacingMD)
+        .padding(.vertical, DesignTokens.spacingSM)
+        .background(.regularMaterial, in: Capsule())
+        .overlay(Capsule().strokeBorder(.separator, lineWidth: 0.5))
+        .shadow(radius: 8, y: 2)
+    }
+}
+
+private struct PreWarnHUD: View {
+    let seconds: Int
+    let color: Color
+    var onStartNow: () -> Void
+    var onSkip: () -> Void
+
+    var body: some View {
+        VStack(spacing: DesignTokens.spacingSM) {
+            HStack(spacing: DesignTokens.spacingXS) {
+                Image(systemName: "cup.and.saucer.fill")
+                    .foregroundStyle(color)
+                Text("Break in \(seconds)s")
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .monospacedDigit()
+            }
+            HStack(spacing: DesignTokens.spacingSM) {
+                Button("Start now", action: onStartNow)
+                    .buttonStyle(.borderedProminent)
+                    .tint(color)
+                Button("Skip", action: onSkip)
+                    .buttonStyle(.bordered)
+            }
+            .controlSize(.regular)
+        }
+        .padding(.horizontal, DesignTokens.spacingLG)
+        .padding(.vertical, DesignTokens.spacingMD)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: DesignTokens.cornerRadiusMD))
+        .overlay(
+            RoundedRectangle(cornerRadius: DesignTokens.cornerRadiusMD)
+                .strokeBorder(.separator, lineWidth: 0.5)
+        )
+        .shadow(radius: 10, y: 2)
+    }
+}
+
+private struct PreWarnBar: View {
+    let progress: Double
+    let color: Color
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Color.clear
+                Rectangle()
+                    .fill(color)
+                    .frame(width: geo.size.width * progress)
+                    .animation(.linear(duration: 1), value: progress)
+            }
+        }
+    }
+}
+
 // MARK: - Progress Bar
 
 struct BreakProgressBar: View {

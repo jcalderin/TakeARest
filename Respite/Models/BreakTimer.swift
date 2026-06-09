@@ -1,6 +1,23 @@
 import Foundation
 import SwiftUI
 
+/// How (or whether) a timer warns you that a break is coming, so you can wrap up.
+enum PreWarnStyle: String, Codable, Sendable, CaseIterable {
+    case off    // no heads-up
+    case pill   // centered countdown pill
+    case hud    // centered countdown + Start now / Skip buttons
+    case bar    // thin progress bar across the top edge
+
+    var label: String {
+        switch self {
+        case .off: "Off"
+        case .pill: "Pill"
+        case .hud: "Buttons"
+        case .bar: "Bar"
+        }
+    }
+}
+
 /// A fully self-contained break timer configuration.
 ///
 /// Each `BreakTimer` is an independent entity with its own timing, appearance,
@@ -82,6 +99,14 @@ struct BreakTimer: Identifiable, Codable, Equatable, Sendable {
     /// stepping by `breakIntervalMinutes`. e.g. interval 20, align 0 →
     /// :00 / :20 / :40; interval 120, align 30 → 00:30 / 02:30 / …
     var alignMinute: Int = 0
+
+    // MARK: - Pre-Warning
+
+    /// How to warn that a break is imminent (or `.off`). Defaults to `.pill`.
+    var preWarnStyle: PreWarnStyle = .pill
+
+    /// How many seconds before the break the heads-up appears (5–300).
+    var preWarnSeconds: Int = DesignTokens.preWarnDefaultSeconds
 
     // MARK: - Computed: Schedule
 
@@ -244,6 +269,9 @@ struct BreakTimer: Identifiable, Codable, Equatable, Sendable {
         copy.endMinute = copy.endMinute.clamped(to: 0...59)
         copy.activeDays = copy.activeDays.filter { (1...7).contains($0) }
         copy.alignMinute = copy.alignMinute.clamped(to: 0...59)
+        copy.preWarnSeconds = copy.preWarnSeconds.clamped(
+            to: DesignTokens.minPreWarnSeconds...DesignTokens.maxPreWarnSeconds
+        )
         copy.coveredByTimerIDs.remove(copy.id) // a timer can't cover itself
         return copy
     }
@@ -315,6 +343,7 @@ extension BreakTimer {
         case showCountdown, playSoundOnBreak
         case activeDays, startHour, startMinute, endHour, endMinute
         case coveredByTimerIDs, alignMinute
+        case preWarnStyle, preWarnSeconds
     }
 
     /// Retired fields, read only to migrate old saved data. The new model is
@@ -352,6 +381,11 @@ extension BreakTimer {
             let legacy = try decoder.container(keyedBy: LegacyKeys.self)
             alignMinute = try legacy.decodeIfPresent(Int.self, forKey: .anchorMinute) ?? 0
         }
+
+        // Pre-warning — absent in pre-feature saved data; default to a 30s pill.
+        preWarnStyle = try c.decodeIfPresent(PreWarnStyle.self, forKey: .preWarnStyle) ?? .pill
+        preWarnSeconds = try c.decodeIfPresent(Int.self, forKey: .preWarnSeconds)
+            ?? DesignTokens.preWarnDefaultSeconds
     }
 }
 

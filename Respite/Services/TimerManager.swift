@@ -33,6 +33,12 @@ final class TimerManager {
     /// Callback fired when the current break overlay should dismiss.
     var onBreakEnded: (() -> Void)?
 
+    /// Callback fired when a heads-up should be shown for an imminent break.
+    var onPreWarn: ((BreakTimer, TimerEngine) -> Void)?
+
+    /// Callback fired when an active heads-up should be taken down.
+    var onPreWarnCancel: (() -> Void)?
+
     // MARK: - Dependencies
 
     private let settings: AppSettings
@@ -151,6 +157,12 @@ final class TimerManager {
         }
         engine.onBreakEnded = { [weak self] timer in
             self?.handleBreakEnded(from: engine, timer: timer)
+        }
+        engine.onPreWarn = { [weak self] timer, engine in
+            self?.onPreWarn?(timer, engine)
+        }
+        engine.onPreWarnCancel = { [weak self] in
+            self?.onPreWarnCancel?()
         }
     }
 

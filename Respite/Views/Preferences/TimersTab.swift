@@ -329,6 +329,7 @@ struct TimerEditor: View {
                 VStack(spacing: DesignTokens.spacingSM) {
                     nameSection
                     timingSection
+                    preWarnSection
                     scheduleSection
                     coordinationSection
                     appearanceSection
@@ -455,6 +456,45 @@ struct TimerEditor: View {
             }
             repeatUnit = unit
         }
+    }
+
+    // MARK: - Heads-Up Section
+
+    private var preWarnSection: some View {
+        GlassSection("Heads-Up") {
+            SettingRow {
+                Text("Warn before break")
+                Spacer()
+                Picker("", selection: Binding(
+                    get: { timer.preWarnStyle },
+                    set: { newValue in
+                        withAnimation(.easeInOut(duration: 0.2)) { timer.preWarnStyle = newValue }
+                    }
+                )) {
+                    ForEach(PreWarnStyle.allCases, id: \.self) { style in
+                        Text(style.label).tag(style)
+                    }
+                }
+                .labelsHidden()
+                .fixedSize()
+            }
+
+            if timer.preWarnStyle != .off {
+                GlassDivider()
+                SettingRow {
+                    Text("Lead time")
+                    Spacer()
+                    CompactNumberInput(
+                        value: $timer.preWarnSeconds,
+                        range: DesignTokens.minPreWarnSeconds...DesignTokens.maxPreWarnSeconds,
+                        step: 5,
+                        unit: "sec"
+                    )
+                }
+                SectionCaption("A heads-up appears \(timer.preWarnSeconds)s before the break so you can wrap up. It never steals focus.")
+            }
+        }
+        .transition(.opacity)
     }
 
     // MARK: - Coordination Section

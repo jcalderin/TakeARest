@@ -31,6 +31,10 @@ final class OverlayService {
     /// Local key monitor, active only while the overlay is shown.
     private var keyMonitor: Any?
 
+    /// The app that was frontmost before the overlay stole focus, so it can be
+    /// reactivated on dismiss (skip/postpone/natural end).
+    private var previousApp: NSRunningApplication?
+
     // MARK: - Init
 
     init(timerManager: TimerManager) {
@@ -51,6 +55,11 @@ final class OverlayService {
             log.error("show(\(timer.name, privacy: .public)) — no screens")
             return
         }
+
+        // Remember who had focus so we can hand it back on dismiss (unless it
+        // was us, e.g. the Preferences window).
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        previousApp = (frontmost?.bundleIdentifier == Bundle.main.bundleIdentifier) ? nil : frontmost
         // Pick the interactive screen by index. Comparing NSScreen instances
         // directly can fail (NSScreen.main may be a different instance than the
         // ones in .screens), which would leave zero interactive overlays.
@@ -158,6 +167,12 @@ final class OverlayService {
         }
         overlayWindows.removeAll()
         isShowing = false
+
+        // Hand focus back to whatever the user was in before the break.
+        if let previousApp {
+            previousApp.activate()
+            self.previousApp = nil
+        }
     }
 
     private func createOverlayWindow<Content: View>(screen: NSScreen, content: Content) -> NSWindow {
@@ -197,4 +212,77 @@ final class OverlayService {
 private final class KeyableOverlayWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
+}
+
+// MARK: - Pre-Warning HUD
+
+/// Shows the "break is coming" heads-up (pill / buttons / bar) before a break.
+///
+/// Uses a **non-activating** panel so it never steals keyboard focus while the
+/// user is still typing. Sits at `.floating` level (below the break overlay's
+/// `.screenSaver`), centered on the active screen.
+@MainActor
+@Observable
+final class PreWarnService {
+
+    private(set) var isShowing = false
+    private var panel: NSPanel?
+
+    func show(
+        for timer: BreakTimer,
+        engine: TimerEngine,
+        onStartNow: @escaping () -> Void,
+        onSkip: @escaping () -> Void
+    ) {
+        guard timer.preWarnStyle != .off, !isShowing else { return }
+        guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
+
+        let panel = NSPanel(
+            contentRect: Self.frame(for: timer.preWarnStyle, on: screen),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.level = .floating
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = (timer.preWarnStyle != .bar)
+        panel.ignoresMouseEvents = (timer.preWarnStyle != .hud) // only the buttons style is clickable
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        panel.hidesOnDeactivate = false
+
+        let host = NSHostingView(rootView: PreWarnView(
+            timer: timer, engine: engine, onStartNow: onStartNow, onSkip: onSkip
+        ))
+        host.frame = panel.contentView!.bounds
+        host.autoresizingMask = [.width, .height]
+        panel.contentView = host
+        panel.orderFrontRegardless()
+
+        self.panel = panel
+        isShowing = true
+    }
+
+    func dismiss() {
+        panel?.orderOut(nil)
+        panel = nil
+        isShowing = false
+    }
+
+    /// Centered pill/HUD, or a top-edge bar, within the screen's visible area
+    /// (so it clears the menu bar / Dock).
+    private static func frame(for style: PreWarnStyle, on screen: NSScreen) -> NSRect {
+        let area = screen.visibleFrame
+        switch style {
+        case .bar:
+            let h: CGFloat = 6
+            return NSRect(x: area.minX, y: area.maxY - h, width: area.width, height: h)
+        case .hud:
+            let w: CGFloat = 380, h: CGFloat = 110
+            return NSRect(x: area.midX - w / 2, y: area.midY - h / 2, width: w, height: h)
+        case .pill, .off:
+            let w: CGFloat = 260, h: CGFloat = 64
+            return NSRect(x: area.midX - w / 2, y: area.midY - h / 2, width: w, height: h)
+        }
+    }
 }

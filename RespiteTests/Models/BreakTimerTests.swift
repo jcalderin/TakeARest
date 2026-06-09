@@ -262,6 +262,8 @@ struct BreakTimerTests {
         let coveringID = UUID()
         original.coveredByTimerIDs = [coveringID]
         original.alignMinute = 15
+        original.preWarnStyle = .hud
+        original.preWarnSeconds = 45
 
         let data = try JSONEncoder().encode(original)
         let decoded = try JSONDecoder().decode(BreakTimer.self, from: data)
@@ -269,6 +271,25 @@ struct BreakTimerTests {
         #expect(decoded == original)
         #expect(decoded.coveredByTimerIDs == [coveringID])
         #expect(decoded.alignMinute == 15)
+        #expect(decoded.preWarnStyle == .hud)
+        #expect(decoded.preWarnSeconds == 45)
+    }
+
+    /// Pre-warning fields are absent in pre-feature data → default to a 30s pill.
+    @Test("Legacy JSON without pre-warn fields defaults to a 30s pill")
+    func legacyDecodeDefaultsPreWarn() throws {
+        let original = BreakTimer.screenBreak()
+        var dict = try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(original)
+        ) as! [String: Any]
+        dict.removeValue(forKey: "preWarnStyle")
+        dict.removeValue(forKey: "preWarnSeconds")
+
+        let legacyData = try JSONSerialization.data(withJSONObject: dict)
+        let decoded = try JSONDecoder().decode(BreakTimer.self, from: legacyData)
+
+        #expect(decoded.preWarnStyle == .pill)
+        #expect(decoded.preWarnSeconds == DesignTokens.preWarnDefaultSeconds)
     }
 
     /// Guards the data we just restored: JSON saved before these fields existed
