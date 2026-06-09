@@ -197,23 +197,48 @@ private struct PreWarnBar: View {
     }
 }
 
-/// Large, see-through countdown filling the whole screen — visible everywhere on
-/// a wide display, but faint enough to read content behind it (and click through).
+/// See-through countdown tiled diagonally across the whole screen — repeated so
+/// it's easy to spot anywhere (even on a dark desktop), but faint enough to read
+/// and click through what's behind it.
 private struct PreWarnWatermark: View {
     let seconds: Int
     let color: Color
 
+    private let tileW: CGFloat = 320
+    private let tileH: CGFloat = 170
+
     var body: some View {
-        Text("Break in \(seconds)s")
-            .font(.system(size: 220, weight: .bold, design: .rounded))
-            .monospacedDigit()
-            .minimumScaleFactor(0.2)
-            .lineLimit(1)
-            .padding(.horizontal, DesignTokens.spacing2XL)
-            .foregroundStyle(color.opacity(0.22)) // watermark: see-through but legible
-            .shadow(color: .black.opacity(0.18), radius: 3, y: 1)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .allowsHitTesting(false)
+        Canvas { context, size in
+            let resolved = context.resolve(
+                Text("Break in \(seconds)s")
+                    .font(.system(size: 34, weight: .semibold, design: .rounded))
+                    .foregroundStyle(color.opacity(0.28))
+            )
+
+            // Rotate the whole pattern about the screen's center.
+            context.translateBy(x: size.width / 2, y: size.height / 2)
+            context.rotate(by: .degrees(-30))
+            context.translateBy(x: -size.width / 2, y: -size.height / 2)
+
+            // Tile over an area larger than the screen so corners fill in once
+            // rotated; offset every other row for a brick layout.
+            let pad = max(size.width, size.height) * 0.7
+            var row = 0
+            var y = -pad
+            while y < size.height + pad {
+                let xShift = row.isMultiple(of: 2) ? 0 : tileW / 2
+                var x = -pad + xShift
+                while x < size.width + pad {
+                    context.draw(resolved, at: CGPoint(x: x, y: y), anchor: .center)
+                    x += tileW
+                }
+                y += tileH
+                row += 1
+            }
+        }
+        .shadow(color: .black.opacity(0.22), radius: 2)
+        .allowsHitTesting(false)
+        .ignoresSafeArea()
     }
 }
 
