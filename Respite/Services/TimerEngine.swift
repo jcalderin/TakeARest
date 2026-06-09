@@ -150,6 +150,21 @@ final class TimerEngine: Identifiable {
         startBreak()
     }
 
+    /// Run a one-off preview: the heads-up (if configured) followed by the break,
+    /// without waiting for the schedule. Uses a short lead so it's quick to see.
+    /// Overrides the current state; the engine reschedules normally afterward.
+    func startTest() {
+        cancelPreWarnIfNeeded()
+        stopTicking()
+        endActivity()
+        postponeCount = 0
+        secondsRemainingInBreak = 0
+        let lead = breakTimer.preWarnStyle == .off ? 0 : min(breakTimer.preWarnSeconds, 8)
+        nextBreakDate = dateProvider().addingTimeInterval(TimeInterval(lead))
+        state = .counting
+        startTicking()
+    }
+
     /// Skip/dismiss the current active break. Resets timer.
     func skipCurrentBreak() {
         guard case .onBreak = state else { return }

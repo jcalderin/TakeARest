@@ -103,6 +103,11 @@ final class TimerManager {
         }
     }
 
+    /// Run a one-off test preview (heads-up + break) for a timer, on its engine.
+    func runTest(for id: UUID) {
+        engines[id]?.startTest()
+    }
+
     /// Pause all active engines for the given duration.
     /// Pass `nil` for indefinite pause ("Until I Resume").
     func pauseAll(minutes: Int?) {

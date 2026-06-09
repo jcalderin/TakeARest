@@ -27,6 +27,7 @@ struct TimersTab: View {
                         )
                         .tag(timer.id)
                         .contextMenu {
+                            Button("Test") { timerManager.runTest(for: timer.id) }
                             Button("Edit...") { editingTimer = timer }
                             Button("Duplicate") { duplicateTimer(timer) }
                             Divider()
@@ -101,11 +102,21 @@ struct TimersTab: View {
             .padding(.vertical, DesignTokens.spacingXS)
         }
         .sheet(item: $editingTimer) { timer in
-            TimerEditor(timer: timer, allTimers: settings.timers) { updated in
-                settings.updateTimer(updated)
-                timerManager.syncEngines()
-                editingTimer = nil
-            }
+            TimerEditor(
+                timer: timer,
+                allTimers: settings.timers,
+                onTest: { edited in
+                    // Apply the in-progress config so the test reflects it, then preview.
+                    settings.updateTimer(edited)
+                    timerManager.syncEngines()
+                    timerManager.runTest(for: edited.id)
+                },
+                onSave: { updated in
+                    settings.updateTimer(updated)
+                    timerManager.syncEngines()
+                    editingTimer = nil
+                }
+            )
         }
     }
 
@@ -284,17 +295,24 @@ struct TimerEditor: View {
     @State private var lastHours: Int
     /// All timers, used to populate the "Covered by" picker. Excludes self.
     let allTimers: [BreakTimer]
+    var onTest: (BreakTimer) -> Void = { _ in }
     let onSave: (BreakTimer) -> Void
 
     @Environment(\.dismiss) private var dismiss
 
-    init(timer: BreakTimer, allTimers: [BreakTimer] = [], onSave: @escaping (BreakTimer) -> Void) {
+    init(
+        timer: BreakTimer,
+        allTimers: [BreakTimer] = [],
+        onTest: @escaping (BreakTimer) -> Void = { _ in },
+        onSave: @escaping (BreakTimer) -> Void
+    ) {
         _timer = State(initialValue: timer)
         let hourly = timer.isHourly
         _repeatUnit = State(initialValue: hourly ? .hours : .minutes)
         _lastMinutes = State(initialValue: hourly ? 20 : timer.breakIntervalMinutes)
         _lastHours = State(initialValue: hourly ? timer.breakIntervalMinutes / 60 : 1)
         self.allTimers = allTimers
+        self.onTest = onTest
         self.onSave = onSave
     }
 
@@ -312,6 +330,8 @@ struct TimerEditor: View {
                 Text("Edit Timer")
                     .font(.system(size: 15, weight: .semibold))
                 Spacer()
+                Button("Test") { onTest(timer) }
+                    .help("Preview the heads-up and break for this timer")
                 Button("Cancel") { dismiss() }
                     .keyboardShortcut(.cancelAction)
                 Button("Save") { onSave(timer) }

@@ -499,6 +499,31 @@ struct TimerEngineTests {
         #expect(cancelled)
     }
 
+    @Test("startTest runs a quick cycle and fires the heads-up")
+    func startTestFiresPreWarn() {
+        let (engine, _) = makePreWarnSUT(style: .pill, leadSeconds: 30, now: dateAt(9, 0))
+        var warned = false
+        engine.onPreWarn = { _, _ in warned = true }
+
+        engine.startTest()
+        #expect(engine.isCounting)
+        #expect(warned) // lead capped to 8s ≤ 30 → fires on the first tick
+    }
+
+    @Test("startTest with heads-up off goes straight to the break")
+    func startTestOffStartsBreak() {
+        let (engine, _) = makePreWarnSUT(style: .off, leadSeconds: 30, now: dateAt(9, 0))
+        var warned = false
+        var broke = false
+        engine.onPreWarn = { _, _ in warned = true }
+        engine.onBreakStarted = { _ in broke = true }
+
+        engine.startTest()
+        #expect(!warned)
+        #expect(broke)
+        #expect(engine.isOnBreak)
+    }
+
     // MARK: - Countdown Formatting
 
     @Test("Countdown formatted string is correct")
