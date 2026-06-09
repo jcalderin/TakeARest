@@ -107,6 +107,8 @@ struct PreWarnView: View {
                 PreWarnHUD(seconds: seconds, color: timer.overlayColor,
                            onStartNow: onStartNow, onSkip: onSkip)
             }
+        case .watermark:
+            PreWarnWatermark(seconds: seconds, color: timer.overlayColor)
         case .off:
             EmptyView()
         }
@@ -192,6 +194,26 @@ private struct PreWarnBar: View {
                     .animation(.linear(duration: 1), value: progress)
             }
         }
+    }
+}
+
+/// Large, see-through countdown filling the whole screen — visible everywhere on
+/// a wide display, but faint enough to read content behind it (and click through).
+private struct PreWarnWatermark: View {
+    let seconds: Int
+    let color: Color
+
+    var body: some View {
+        Text("Break in \(seconds)s")
+            .font(.system(size: 220, weight: .bold, design: .rounded))
+            .monospacedDigit()
+            .minimumScaleFactor(0.2)
+            .lineLimit(1)
+            .padding(.horizontal, DesignTokens.spacing2XL)
+            .foregroundStyle(color.opacity(0.22)) // watermark: see-through but legible
+            .shadow(color: .black.opacity(0.18), radius: 3, y: 1)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .allowsHitTesting(false)
     }
 }
 

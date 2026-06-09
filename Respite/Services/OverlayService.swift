@@ -226,7 +226,7 @@ private final class KeyableOverlayWindow: NSWindow {
 final class PreWarnService {
 
     private(set) var isShowing = false
-    private var panel: NSPanel?
+    private var panels: [NSPanel] = []
 
     func show(
         for timer: BreakTimer,
@@ -235,45 +235,54 @@ final class PreWarnService {
         onSkip: @escaping () -> Void
     ) {
         guard timer.preWarnStyle != .off, !isShowing else { return }
-        guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
 
-        let panel = NSPanel(
-            contentRect: Self.frame(for: timer.preWarnStyle, on: screen),
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
-        )
-        panel.level = .floating
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = (timer.preWarnStyle != .bar)
-        panel.ignoresMouseEvents = (timer.preWarnStyle != .hud) // only the buttons style is clickable
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
-        panel.hidesOnDeactivate = false
+        // Watermark spans every screen (so it's unmissable on a wide setup);
+        // the other styles sit on the active screen only.
+        let screens = timer.preWarnStyle.spansAllScreens
+            ? NSScreen.screens
+            : [NSScreen.main ?? NSScreen.screens.first].compactMap { $0 }
 
-        let host = NSHostingView(rootView: PreWarnView(
-            timer: timer, engine: engine, onStartNow: onStartNow, onSkip: onSkip
-        ))
-        host.frame = panel.contentView!.bounds
-        host.autoresizingMask = [.width, .height]
-        panel.contentView = host
-        panel.orderFrontRegardless()
+        for screen in screens {
+            let panel = NSPanel(
+                contentRect: Self.frame(for: timer.preWarnStyle, on: screen),
+                styleMask: [.borderless, .nonactivatingPanel],
+                backing: .buffered,
+                defer: false
+            )
+            panel.level = .floating
+            panel.isOpaque = false
+            panel.backgroundColor = .clear
+            panel.hasShadow = (timer.preWarnStyle != .bar && timer.preWarnStyle != .watermark)
+            panel.ignoresMouseEvents = timer.preWarnStyle.isClickThrough
+            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+            panel.hidesOnDeactivate = false
 
-        self.panel = panel
-        isShowing = true
+            let host = NSHostingView(rootView: PreWarnView(
+                timer: timer, engine: engine, onStartNow: onStartNow, onSkip: onSkip
+            ))
+            host.frame = panel.contentView!.bounds
+            host.autoresizingMask = [.width, .height]
+            panel.contentView = host
+            panel.orderFrontRegardless()
+
+            panels.append(panel)
+        }
+        isShowing = !panels.isEmpty
     }
 
     func dismiss() {
-        panel?.orderOut(nil)
-        panel = nil
+        for panel in panels { panel.orderOut(nil) }
+        panels.removeAll()
         isShowing = false
     }
 
-    /// Centered pill/HUD, or a top-edge bar, within the screen's visible area
-    /// (so it clears the menu bar / Dock).
+    /// Watermark fills the whole screen; bar hugs the top edge; pill/HUD are
+    /// centered in the visible area (clear of the menu bar / Dock).
     private static func frame(for style: PreWarnStyle, on screen: NSScreen) -> NSRect {
         let area = screen.visibleFrame
         switch style {
+        case .watermark:
+            return screen.frame
         case .bar:
             let h: CGFloat = 6
             return NSRect(x: area.minX, y: area.maxY - h, width: area.width, height: h)

@@ -3,10 +3,11 @@ import SwiftUI
 
 /// How (or whether) a timer warns you that a break is coming, so you can wrap up.
 enum PreWarnStyle: String, Codable, Sendable, CaseIterable {
-    case off    // no heads-up
-    case pill   // centered countdown pill
-    case hud    // centered countdown + Start now / Skip buttons
-    case bar    // thin progress bar across the top edge
+    case off        // no heads-up
+    case pill       // centered countdown pill
+    case hud        // centered countdown + Start now / Skip buttons
+    case bar        // thin progress bar across the top edge
+    case watermark  // large see-through countdown across all screens (click-through)
 
     var label: String {
         switch self {
@@ -14,8 +15,15 @@ enum PreWarnStyle: String, Codable, Sendable, CaseIterable {
         case .pill: "Pill"
         case .hud: "Buttons"
         case .bar: "Bar"
+        case .watermark: "Watermark"
         }
     }
+
+    /// Whether this style covers every screen (vs. just the active one).
+    var spansAllScreens: Bool { self == .watermark }
+
+    /// Whether clicks pass straight through to the app behind it.
+    var isClickThrough: Bool { self != .hud }
 }
 
 /// A fully self-contained break timer configuration.
