@@ -3,7 +3,7 @@ BUILD    := ./build
 PRODUCT  := $(BUILD)/Build/Products/Release/$(APP).app
 LAUNCHER := $(HOME)/.local/bin/respite
 
-.PHONY: build install launcher run uninstall test clean
+.PHONY: build install launcher run uninstall test clean release
 
 ## build the Release .app
 # Ad-hoc sign (CODE_SIGN_IDENTITY=-) so the App Sandbox entitlement is embedded.
@@ -38,3 +38,9 @@ test:
 
 clean:
 	rm -rf $(BUILD)
+
+## build, package, tag and publish a GitHub release
+## usage: make release VERSION=1.3.0 [RELEASE_FLAGS=--dry-run]
+release:
+	@test -n "$(VERSION)" || { echo "usage: make release VERSION=1.3.0 [RELEASE_FLAGS='--dry-run|--draft|--prerelease']"; exit 1; }
+	scripts/release.sh $(VERSION) $(RELEASE_FLAGS)

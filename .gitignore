@@ -33,3 +33,6 @@ playground.xcworkspace
 *.moved-aside
 *.swp
 *~.nib
+
+# Release artifacts
+dist/
