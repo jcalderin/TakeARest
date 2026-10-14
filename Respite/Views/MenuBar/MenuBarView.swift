@@ -335,8 +335,6 @@ private struct TimerRow: View {
                 .monospacedDigit()
                 .frame(minWidth: 52, alignment: .trailing)
                 .foregroundStyle(.primary)
-                .contentTransition(.numericText())
-                .animation(.linear(duration: 0.3), value: engine.secondsUntilBreak)
 
         case .onBreak:
             HStack(spacing: 4) {
@@ -347,8 +345,6 @@ private struct TimerRow: View {
                     .font(.system(size: 13, weight: .light, design: .rounded))
                     .monospacedDigit()
                     .foregroundStyle(DesignTokens.primaryBlue)
-                    .contentTransition(.numericText())
-                    .animation(.linear(duration: 0.3), value: engine.secondsRemainingInBreak)
             }
             .frame(minWidth: 52, alignment: .trailing)
 
